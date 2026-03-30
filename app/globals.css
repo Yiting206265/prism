@@ -35,6 +35,48 @@
   --sans: var(--font-ibm-sans), -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
+/* ── Light mode overrides ────────────────── */
+[data-theme="light"] {
+  --bg: #f5f3ee;
+  --surface: #ffffff;
+  --surface-hover: #ece8df;
+  --border: rgba(0, 0, 0, 0.08);
+  --border-hover: rgba(0, 0, 0, 0.15);
+  --border-accent: rgba(138, 106, 46, 0.35);
+
+  --text-primary: #18191a;
+  --text-secondary: #5c6b7a;
+  --text-muted: #a8b4c0;
+
+  --accent: #8a6a2e;
+  --accent-bright: #a07c3a;
+  --accent-dim: rgba(138, 106, 46, 0.1);
+
+  --ai: #1a5fa8;
+  --ai-dim: rgba(26, 95, 168, 0.07);
+  --ai-border: rgba(26, 95, 168, 0.2);
+}
+
+[data-theme="light"] body {
+  background-image:
+    radial-gradient(ellipse at 12% 55%, rgba(138, 106, 46, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 88% 10%, rgba(26, 95, 168, 0.04) 0%, transparent 45%);
+}
+
+[data-theme="light"] .header {
+  background: rgba(245, 243, 238, 0.88);
+}
+
+[data-theme="light"] .skeleton-block {
+  background: linear-gradient(
+    90deg,
+    #e4e0d6 0%,
+    rgba(0, 0, 0, 0.04) 50%,
+    #e4e0d6 100%
+  );
+  background-size: 600px 100%;
+}
+
 /* ── Reset ───────────────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -163,6 +205,28 @@ body {
 
 .header-link:hover {
   color: var(--accent);
+}
+
+.theme-toggle {
+  font-size: 1rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius);
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  line-height: 1;
+}
+
+.theme-toggle:hover {
+  border-color: var(--border-hover);
+  color: var(--accent);
+  background: var(--accent-dim);
 }
 
 /* ── Category Selector ───────────────────── */

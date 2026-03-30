@@ -36,6 +36,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="en"
       className={`${cormorant.variable} ${ibmMono.variable} ${ibmSans.variable}`}
     >
+      <head>
+        {/* Prevent flash of wrong theme on load */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var t=localStorage.getItem('prism-theme');document.documentElement.setAttribute('data-theme',t||'dark');})()`,
+          }}
+        />
+      </head>
       <body>{children}</body>
     </html>
   );
