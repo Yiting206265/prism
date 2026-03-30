@@ -1,8 +1,6 @@
 import { NextRequest } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 
-const client = new Anthropic();
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -12,9 +10,12 @@ export async function POST(request: NextRequest) {
       return new Response('Missing title or abstract', { status: 400 });
     }
 
-    const stream = client.messages.stream({
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+    const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 280,
+      stream: true,
       messages: [
         {
           role: 'user',
@@ -35,16 +36,17 @@ Abstract: ${abstract}`,
     const readable = new ReadableStream({
       async start(controller) {
         try {
-          for await (const event of stream) {
+          for await (const chunk of response) {
             if (
-              event.type === 'content_block_delta' &&
-              event.delta.type === 'text_delta'
+              chunk.type === 'content_block_delta' &&
+              chunk.delta.type === 'text_delta'
             ) {
-              controller.enqueue(new TextEncoder().encode(event.delta.text));
+              controller.enqueue(new TextEncoder().encode(chunk.delta.text));
             }
           }
           controller.close();
         } catch (err) {
+          console.error('[summarize] stream error:', err);
           controller.error(err);
         }
       },
@@ -54,11 +56,11 @@ Abstract: ${abstract}`,
       headers: {
         'Content-Type': 'text/plain; charset=utf-8',
         'Cache-Control': 'no-cache, no-store',
-        'X-Content-Type-Options': 'nosniff',
       },
     });
   } catch (error) {
     console.error('[summarize] error:', error);
-    return new Response('Failed to generate summary', { status: 500 });
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return new Response(message, { status: 500 });
   }
 }
