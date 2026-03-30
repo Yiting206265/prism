@@ -27,11 +27,11 @@ const GROUPS: CategoryGroup[] = [
   {
     label: 'Physics',
     categories: [
-      { code: 'quant-ph',   label: 'quant-ph'   },
-      { code: 'cond-mat',   label: 'cond-mat'   },
-      { code: 'hep-th',     label: 'hep-th'     },
-      { code: 'astro-ph',   label: 'astro-ph'   },
-      { code: 'physics.optics', label: 'optics' },
+      { code: 'quant-ph',          label: 'quant-ph'    },
+      { code: 'cond-mat.mes-hall', label: 'cond-mat'    },
+      { code: 'hep-th',            label: 'hep-th'      },
+      { code: 'astro-ph.GA',       label: 'astro-ph'    },
+      { code: 'physics.optics',    label: 'optics'      },
     ],
   },
   {
