@@ -40,41 +40,48 @@
   --bg: #f5f3ee;
   --surface: #ffffff;
   --surface-hover: #ece8df;
-  --border: rgba(0, 0, 0, 0.08);
-  --border-hover: rgba(0, 0, 0, 0.15);
-  --border-accent: rgba(138, 106, 46, 0.35);
+  --border: rgba(0, 0, 0, 0.13);
+  --border-hover: rgba(0, 0, 0, 0.25);
+  --border-accent: rgba(122, 92, 30, 0.45);
 
-  --text-primary: #18191a;
-  --text-secondary: #5c6b7a;
-  --text-muted: #a8b4c0;
+  /* Much darker secondary/muted for legibility on cream */
+  --text-primary: #0f1012;
+  --text-secondary: #374151;
+  --text-muted: #6b7a8a;
 
-  --accent: #8a6a2e;
-  --accent-bright: #a07c3a;
-  --accent-dim: rgba(138, 106, 46, 0.1);
+  --accent: #7a5c1e;
+  --accent-bright: #8f6d28;
+  --accent-dim: rgba(122, 92, 30, 0.12);
 
-  --ai: #1a5fa8;
-  --ai-dim: rgba(26, 95, 168, 0.07);
-  --ai-border: rgba(26, 95, 168, 0.2);
+  --ai: #1450a0;
+  --ai-dim: rgba(20, 80, 160, 0.08);
+  --ai-border: rgba(20, 80, 160, 0.28);
 }
 
 [data-theme="light"] body {
   background-image:
-    radial-gradient(ellipse at 12% 55%, rgba(138, 106, 46, 0.06) 0%, transparent 50%),
-    radial-gradient(ellipse at 88% 10%, rgba(26, 95, 168, 0.04) 0%, transparent 45%);
+    radial-gradient(ellipse at 12% 55%, rgba(122, 92, 30, 0.07) 0%, transparent 50%),
+    radial-gradient(ellipse at 88% 10%, rgba(20, 80, 160, 0.04) 0%, transparent 45%);
 }
 
 [data-theme="light"] .header {
-  background: rgba(245, 243, 238, 0.88);
+  background: rgba(245, 243, 238, 0.9);
+}
+
+/* Fix the hardcoded dark bg on category section */
+[data-theme="light"] .category-section {
+  background: rgba(225, 220, 210, 0.45);
 }
 
 [data-theme="light"] .skeleton-block {
   background: linear-gradient(
     90deg,
-    #e4e0d6 0%,
-    rgba(0, 0, 0, 0.04) 50%,
-    #e4e0d6 100%
+    #dedad1 0%,
+    #ece8e0 50%,
+    #dedad1 100%
   );
   background-size: 600px 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
 }
 
 /* ── Reset ───────────────────────────────── */
@@ -232,7 +239,7 @@ body {
 /* ── Category Selector ───────────────────── */
 .category-section {
   border-bottom: 1px solid var(--border);
-  background: rgba(13, 17, 23, 0.6);
+  background: rgba(13, 17, 23, 0.55); /* overridden in light mode below */
 }
 
 .category-inner {
