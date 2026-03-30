@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 
     const response = await fetch(url, {
       headers: { 'User-Agent': 'Prism/1.0 (Research Discovery App; https://github.com)' },
-      next: { revalidate: 300 },
+      cache: 'no-store',
     });
 
     if (!response.ok) {
