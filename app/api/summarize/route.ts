@@ -1,5 +1,4 @@
 import { NextRequest } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,38 +9,52 @@ export async function POST(request: NextRequest) {
       return new Response('Missing title or abstract', { status: 400 });
     }
 
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-    const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 280,
-      stream: true,
-      messages: [
-        {
-          role: 'user',
-          content: `Summarize this research paper in exactly 3 concise sentences for a technical audience:
-1. The core problem or gap being addressed.
-2. The key method or approach used.
-3. The main result or contribution.
-
-Be specific and precise. Avoid generic phrases like "the authors propose" — lead with the substance.
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-8b-instant',
+        max_tokens: 280,
+        stream: true,
+        messages: [
+          {
+            role: 'user',
+            content: `Summarize this research paper in exactly 3 concise sentences. Cover: (1) the core problem, (2) the method used, (3) the main result. Output only the 3 sentences — no intro phrase, no numbering, no preamble.
 
 Title: ${title}
 
 Abstract: ${abstract}`,
-        },
-      ],
+          },
+        ],
+      }),
     });
+
+    if (!response.ok) {
+      const err = await response.text();
+      console.error('[summarize] Groq error:', err);
+      return new Response(err, { status: response.status });
+    }
 
     const readable = new ReadableStream({
       async start(controller) {
+        const reader = response.body!.getReader();
+        const decoder = new TextDecoder();
         try {
-          for await (const chunk of response) {
-            if (
-              chunk.type === 'content_block_delta' &&
-              chunk.delta.type === 'text_delta'
-            ) {
-              controller.enqueue(new TextEncoder().encode(chunk.delta.text));
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const chunk = decoder.decode(value, { stream: true });
+            for (const line of chunk.split('\n')) {
+              const trimmed = line.replace(/^data: /, '').trim();
+              if (!trimmed || trimmed === '[DONE]') continue;
+              try {
+                const json = JSON.parse(trimmed);
+                const text = json.choices?.[0]?.delta?.content;
+                if (text) controller.enqueue(new TextEncoder().encode(text));
+              } catch {}
             }
           }
           controller.close();

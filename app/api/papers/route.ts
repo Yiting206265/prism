@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const category = searchParams.get('category') || 'cs.AI';
   const maxResults = Math.min(parseInt(searchParams.get('maxResults') || '20', 10), 50);
+  const start = Math.max(parseInt(searchParams.get('start') || '0', 10), 0);
 
   // Validate category to prevent injection
   if (!/^[a-zA-Z0-9.\-]+$/.test(category)) {
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const url = `https://export.arxiv.org/api/query?search_query=cat:${category}&sortBy=submittedDate&sortOrder=descending&max_results=${maxResults}`;
+    const url = `https://export.arxiv.org/api/query?search_query=cat:${category}&sortBy=submittedDate&sortOrder=descending&start=${start}&max_results=${maxResults}`;
 
     const response = await fetch(url, {
       headers: { 'User-Agent': 'Prism/1.0 (Research Discovery App; https://github.com)' },

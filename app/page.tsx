@@ -14,8 +14,7 @@ export default function Home() {
             <em>instantly understood.</em>
           </h1>
           <p className="hero-sub">
-            Browse fresh preprints by category. One click for an AI summary —
-            no paywalls, no clutter.
+            Browse fresh preprints by category. One click for an AI summary.
           </p>
         </div>
       </section>

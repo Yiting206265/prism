@@ -40,7 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Prevent flash of wrong theme on load */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var t=localStorage.getItem('prism-theme');document.documentElement.setAttribute('data-theme',t||'dark');})()`,
+            __html: `(function(){var t=localStorage.getItem('prism-theme');document.documentElement.setAttribute('data-theme',t||'light');})()`,
           }}
         />
       </head>

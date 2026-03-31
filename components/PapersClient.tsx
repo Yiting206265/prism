@@ -50,44 +50,56 @@ function SkeletonList() {
   );
 }
 
-export default function PapersClient() {
-  const [category, setCategory]   = useState('cs.AI');
-  const [papers, setPapers]       = useState<Paper[]>([]);
-  const [total, setTotal]         = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError]         = useState<string | null>(null);
+const PAGE_SIZE = 20;
 
-  const fetchPapers = useCallback(async (cat: string) => {
-    setIsLoading(true);
-    setError(null);
-    setPapers([]);
+export default function PapersClient() {
+  const [category, setCategory]     = useState('cs.AI');
+  const [papers, setPapers]         = useState<Paper[]>([]);
+  const [total, setTotal]           = useState(0);
+  const [isLoading, setIsLoading]   = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [error, setError]           = useState<string | null>(null);
+  const [offset, setOffset]         = useState(0);
+
+  const fetchPapers = useCallback(async (cat: string, start = 0, append = false) => {
+    if (append) setIsLoadingMore(true);
+    else { setIsLoading(true); setError(null); setPapers([]); }
 
     try {
-      const res = await fetch(`/api/papers?category=${encodeURIComponent(cat)}&maxResults=20`);
+      const res = await fetch(`/api/papers?category=${encodeURIComponent(cat)}&maxResults=${PAGE_SIZE}&start=${start}`);
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || `HTTP ${res.status}`);
       }
       const data = await res.json();
-      setPapers(data.papers ?? []);
+      const newPapers: Paper[] = data.papers ?? [];
+      setPapers((prev) => append ? [...prev, ...newPapers] : newPapers);
       setTotal(data.total ?? 0);
+      setOffset(start + newPapers.length);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load papers.');
     } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchPapers(category);
+    setOffset(0);
+    fetchPapers(category, 0, false);
   }, [category, fetchPapers]);
 
   const handleCategoryChange = (cat: string) => {
     if (cat === category) {
-      fetchPapers(cat); // re-fetch on same category
+      setOffset(0);
+      fetchPapers(cat, 0, false);
     } else {
       setCategory(cat);
     }
+  };
+
+  const handleLoadMore = () => {
+    fetchPapers(category, offset, true);
   };
 
   const categoryLabel = CATEGORY_NAMES[category] ?? category;
@@ -143,6 +155,20 @@ export default function PapersClient() {
             {papers.map((paper, i) => (
               <PaperCard key={paper.id} paper={paper} index={i + 1} />
             ))}
+
+            {offset < total && (
+              <div className="load-more-wrap">
+                <button
+                  className="load-more-btn"
+                  onClick={handleLoadMore}
+                  disabled={isLoadingMore}
+                >
+                  {isLoadingMore
+                    ? 'Loading…'
+                    : `Load more  ·  ${offset.toLocaleString()} of ${total.toLocaleString()}`}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -5,6 +5,7 @@ export default function Header() {
     <header className="header">
       <div className="header-inner">
         <div className="logo">
+          <img src="/logo.svg" alt="" className="logo-img" aria-hidden="true" />
           <span className="logo-name">Prism</span>
           <span className="logo-dot" aria-hidden="true" />
           <span className="logo-tagline">Research, refracted.</span>
