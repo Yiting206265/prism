@@ -8,12 +8,19 @@ export default function Home() {
 
       <section className="hero">
         <div className="hero-inner">
-          <p className="hero-eyebrow">arXiv · Live Preprints</p>
-          <h1 className="hero-title">
+          <div className="hero-overline">
+            <span>arXiv</span>
+            <span className="hero-overline-dot" aria-hidden="true" />
+            <span>Live Preprints</span>
+            <span className="hero-overline-dot" aria-hidden="true" />
+            <span>AI Summaries</span>
+          </div>
+          <h1 className="hero-display">
             The latest research,<br />
             <em>instantly understood.</em>
           </h1>
-          <p className="hero-sub">
+          <div className="hero-rule" aria-hidden="true" />
+          <p className="hero-tagline">
             Browse fresh preprints by category. One click for an AI summary.
           </p>
         </div>

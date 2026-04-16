@@ -1,5 +1,7 @@
 'use client';
 
+import { Fragment } from 'react';
+
 interface Category {
   code: string;
   label: string;
@@ -14,24 +16,24 @@ const GROUPS: CategoryGroup[] = [
   {
     label: 'AI & ML',
     categories: [
-      { code: 'cs.AI',  label: 'cs.AI'  },
-      { code: 'cs.LG',  label: 'cs.LG'  },
-      { code: 'cs.CV',  label: 'cs.CV'  },
-      { code: 'cs.CL',  label: 'cs.CL'  },
-      { code: 'cs.RO',  label: 'cs.RO'  },
-      { code: 'cs.NE',  label: 'cs.NE'  },
-      { code: 'cs.IR',  label: 'cs.IR'  },
+      { code: 'cs.AI',   label: 'cs.AI'   },
+      { code: 'cs.LG',   label: 'cs.LG'   },
+      { code: 'cs.CV',   label: 'cs.CV'   },
+      { code: 'cs.CL',   label: 'cs.CL'   },
+      { code: 'cs.RO',   label: 'cs.RO'   },
+      { code: 'cs.NE',   label: 'cs.NE'   },
+      { code: 'cs.IR',   label: 'cs.IR'   },
       { code: 'stat.ML', label: 'stat.ML' },
     ],
   },
   {
     label: 'Physics',
     categories: [
-      { code: 'quant-ph',          label: 'quant-ph'    },
-      { code: 'cond-mat.mes-hall', label: 'cond-mat'    },
-      { code: 'hep-th',            label: 'hep-th'      },
-      { code: 'astro-ph.GA',       label: 'astro-ph'    },
-      { code: 'physics.optics',    label: 'optics'      },
+      { code: 'quant-ph',          label: 'quant-ph'  },
+      { code: 'cond-mat.mes-hall', label: 'cond-mat'  },
+      { code: 'hep-th',            label: 'hep-th'    },
+      { code: 'astro-ph.GA',       label: 'astro-ph'  },
+      { code: 'physics.optics',    label: 'optics'    },
     ],
   },
   {
@@ -69,25 +71,28 @@ interface Props {
 
 export default function CategorySelector({ selected, onChange }: Props) {
   return (
-    <div className="category-section">
-      <div className="category-inner">
-        {GROUPS.map((group) => (
-          <div key={group.label} className="category-group">
-            <span className="category-group-label">{group.label}</span>
-            <div className="category-pills">
+    <div className="cat-strip">
+      <div className="cat-strip-inner">
+        <div className="cat-strip-scroll" role="tablist" aria-label="Paper categories">
+          {GROUPS.map((group, gi) => (
+            <Fragment key={group.label}>
+              {gi > 0 && <span className="cat-sep" aria-hidden="true" />}
+              <span className="cat-group-lbl" aria-hidden="true">{group.label}</span>
               {group.categories.map((cat) => (
                 <button
                   key={cat.code}
-                  className={`category-pill${selected === cat.code ? ' active' : ''}`}
+                  role="tab"
+                  aria-selected={selected === cat.code}
+                  className={`cat-btn${selected === cat.code ? ' active' : ''}`}
                   onClick={() => onChange(cat.code)}
                   title={cat.code}
                 >
                   {cat.label}
                 </button>
               ))}
-            </div>
-          </div>
-        ))}
+            </Fragment>
+          ))}
+        </div>
       </div>
     </div>
   );

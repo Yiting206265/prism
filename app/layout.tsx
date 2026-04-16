@@ -1,12 +1,19 @@
 import type { Metadata } from 'next';
-import { Cormorant, IBM_Plex_Mono, IBM_Plex_Sans } from 'next/font/google';
+import { Fraunces, Plus_Jakarta_Sans, IBM_Plex_Mono } from 'next/font/google';
 import './globals.css';
 
-const cormorant = Cormorant({
+const fraunces = Fraunces({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600'],
   style: ['normal', 'italic'],
-  variable: '--font-cormorant',
+  variable: '--font-fraunces',
+  display: 'swap',
+});
+
+const jakartaSans = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600'],
+  variable: '--font-jakarta',
   display: 'swap',
 });
 
@@ -14,13 +21,6 @@ const ibmMono = IBM_Plex_Mono({
   subsets: ['latin'],
   weight: ['300', '400', '500'],
   variable: '--font-ibm-mono',
-  display: 'swap',
-});
-
-const ibmSans = IBM_Plex_Sans({
-  subsets: ['latin'],
-  weight: ['300', '400', '500'],
-  variable: '--font-ibm-sans',
   display: 'swap',
 });
 
@@ -34,7 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={`${cormorant.variable} ${ibmMono.variable} ${ibmSans.variable}`}
+      className={`${fraunces.variable} ${jakartaSans.variable} ${ibmMono.variable}`}
     >
       <head>
         {/* Prevent flash of wrong theme on load */}

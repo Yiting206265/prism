@@ -82,11 +82,10 @@ export default function PaperCard({ paper, index }: { paper: Paper; index: numbe
   return (
     <article
       className="paper-card"
-      style={{ animationDelay: `${(index - 1) * 45}ms` }}
+      style={{ animationDelay: `${Math.min((index - 1) * 40, 400)}ms` }}
     >
-      <div className="paper-index" aria-hidden="true">
-        {num}
-      </div>
+      {/* Ghost number — decorative, sits in background */}
+      <span className="paper-ghost-num" aria-hidden="true">{num}</span>
 
       <div className="paper-body">
         {/* Title */}

@@ -1,18 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <!-- Prism triangle -->
-  <polygon points="50,8 10,82 90,82" fill="none" stroke="#1a1a1a" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
-
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Prism triangle — white so visible on dark browser UI -->
+  <polygon points="50,8 10,82 90,82" stroke="#f0ebe3" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
   <!-- Incoming ray -->
-  <line x1="12" y1="38" x2="34" y2="52" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round"/>
-
-  <!-- Refracted rays -->
-  <line x1="66" y1="55" x2="95" y2="42" stroke="#e8524a" stroke-width="2.2" stroke-linecap="round"/>
-  <line x1="67" y1="59" x2="96" y2="52" stroke="#f0852d" stroke-width="2.2" stroke-linecap="round"/>
-  <line x1="68" y1="63" x2="96" y2="63" stroke="#f5c842" stroke-width="2.2" stroke-linecap="round"/>
-  <line x1="68" y1="67" x2="95" y2="74" stroke="#4caf7d" stroke-width="2.2" stroke-linecap="round"/>
-  <line x1="67" y1="71" x2="93" y2="84" stroke="#4a90d9" stroke-width="2.2" stroke-linecap="round"/>
-  <line x1="65" y1="75" x2="88" y2="94" stroke="#9b6dd6" stroke-width="2.2" stroke-linecap="round"/>
-
-  <!-- Entry dot -->
-  <circle cx="34" cy="52" r="2.5" fill="#1a1a1a"/>
+  <line x1="12" y1="38" x2="34" y2="52" stroke="#f0ebe3" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="34" cy="52" r="2.5" fill="#f0ebe3"/>
+  <!-- Refracted spectrum rays -->
+  <line x1="66" y1="55" x2="94" y2="42" stroke="#e87c3a" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="67" y1="59" x2="94" y2="52" stroke="#efc84a" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="68" y1="63" x2="95" y2="63" stroke="#72b896" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="68" y1="67" x2="94" y2="74" stroke="#4a90d9" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="66" y1="71" x2="90" y2="84" stroke="#9b6dd6" stroke-width="2.5" stroke-linecap="round"/>
 </svg>

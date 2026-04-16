@@ -36,14 +36,11 @@ function SkeletonList() {
     <div className="skeleton-list">
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className="skeleton-card">
-          <div className="skeleton-block skeleton-num" />
-          <div className="skeleton-content">
-            <div className="skeleton-block sk-title" style={{ animationDelay: `${i * 60}ms` }} />
-            <div className="skeleton-block sk-title-2" style={{ animationDelay: `${i * 60 + 40}ms` }} />
-            <div className="skeleton-block sk-meta" style={{ animationDelay: `${i * 60 + 80}ms` }} />
-            <div className="skeleton-block sk-line" style={{ animationDelay: `${i * 60 + 120}ms` }} />
-            <div className="skeleton-block sk-line-2" style={{ animationDelay: `${i * 60 + 160}ms` }} />
-          </div>
+          <div className="skeleton-block sk-title"  style={{ animationDelay: `${i * 60}ms` }} />
+          <div className="skeleton-block sk-title-2" style={{ animationDelay: `${i * 60 + 40}ms` }} />
+          <div className="skeleton-block sk-meta"   style={{ animationDelay: `${i * 60 + 80}ms` }} />
+          <div className="skeleton-block sk-line"   style={{ animationDelay: `${i * 60 + 120}ms` }} />
+          <div className="skeleton-block sk-line-2" style={{ animationDelay: `${i * 60 + 160}ms` }} />
         </div>
       ))}
     </div>
