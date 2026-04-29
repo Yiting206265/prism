@@ -1,7 +1,5 @@
 'use client';
 
-import { Fragment } from 'react';
-
 interface Category {
   code: string;
   label: string;
@@ -73,26 +71,23 @@ export default function CategorySelector({ selected, onChange }: Props) {
   return (
     <div className="cat-strip">
       <div className="cat-strip-inner">
-        <div className="cat-strip-scroll" role="tablist" aria-label="Paper categories">
-          {GROUPS.map((group, gi) => (
-            <Fragment key={group.label}>
-              {gi > 0 && <span className="cat-sep" aria-hidden="true" />}
-              <span className="cat-group-lbl" aria-hidden="true">{group.label}</span>
-              {group.categories.map((cat) => (
-                <button
-                  key={cat.code}
-                  role="tab"
-                  aria-selected={selected === cat.code}
-                  className={`cat-btn${selected === cat.code ? ' active' : ''}`}
-                  onClick={() => onChange(cat.code)}
-                  title={cat.code}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </Fragment>
-          ))}
-        </div>
+        {GROUPS.map((group) => (
+          <div key={group.label} className="cat-row">
+            <span className="cat-group-lbl" aria-hidden="true">{group.label}</span>
+            {group.categories.map((cat) => (
+              <button
+                key={cat.code}
+                role="tab"
+                aria-selected={selected === cat.code}
+                className={`cat-btn${selected === cat.code ? ' active' : ''}`}
+                onClick={() => onChange(cat.code)}
+                title={cat.code}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+        ))}
       </div>
     </div>
   );
