@@ -1,31 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { XMLParser } from 'fast-xml-parser';
 
-interface ArxivAuthor {
-  name: string;
-}
-
-interface ArxivCategory {
-  '@_term': string;
-  '@_scheme': string;
-}
-
-interface ArxivLink {
-  '@_href': string;
-  '@_rel': string;
-  '@_type'?: string;
-  '@_title'?: string;
-}
-
-interface ArxivEntry {
-  id: string;
+interface RssItem {
   title: string;
-  summary: string;
-  published: string;
-  updated: string;
-  author: ArxivAuthor | ArxivAuthor[];
-  category: ArxivCategory | ArxivCategory[];
-  link: ArxivLink | ArxivLink[];
+  link: string;
+  description: string;
+  guid: string | { '#text': string };
+  pubDate: string;
+  'arxiv:announce_type'?: string;
+  'dc:creator'?: string;
+  category: string | string[];
 }
 
 export async function GET(request: NextRequest) {
@@ -34,13 +18,12 @@ export async function GET(request: NextRequest) {
   const maxResults = Math.min(parseInt(searchParams.get('maxResults') || '20', 10), 50);
   const start = Math.max(parseInt(searchParams.get('start') || '0', 10), 0);
 
-  // Validate category to prevent injection
   if (!/^[a-zA-Z0-9.\-]+$/.test(category)) {
     return NextResponse.json({ error: 'Invalid category' }, { status: 400 });
   }
 
   try {
-    const url = `https://export.arxiv.org/api/query?search_query=cat:${category}&sortBy=submittedDate&sortOrder=descending&start=${start}&max_results=${maxResults}`;
+    const url = `https://rss.arxiv.org/rss/${category}`;
 
     const response = await fetch(url, {
       headers: { 'User-Agent': 'Prism/1.0 (Research Discovery App; https://github.com)' },
@@ -48,7 +31,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!response.ok) {
-      throw new Error(`arXiv returned ${response.status}`);
+      throw new Error(`arXiv RSS returned ${response.status}`);
     }
 
     const xml = await response.text();
@@ -56,73 +39,57 @@ export async function GET(request: NextRequest) {
     const parser = new XMLParser({
       ignoreAttributes: false,
       attributeNamePrefix: '@_',
-      isArray: (name) => ['entry', 'author', 'category', 'link'].includes(name),
+      isArray: (name) => ['item', 'category'].includes(name),
     });
 
     const result = parser.parse(xml);
-    const feed = result.feed;
+    const items: RssItem[] = result?.rss?.channel?.item ?? [];
 
-    if (!feed) {
-      throw new Error('Invalid feed response');
-    }
+    const allPapers = items.map((item, index) => {
+      // Extract arXiv ID from guid like "oai:arXiv.org:2606.04037v2"
+      const guidStr = typeof item.guid === 'string'
+        ? item.guid
+        : (item.guid as { '#text': string })?.['#text'] ?? '';
+      const arxivId = guidStr.replace('oai:arXiv.org:', '');
 
-    const entries: ArxivEntry[] = Array.isArray(feed.entry)
-      ? feed.entry
-      : feed.entry
-      ? [feed.entry]
-      : [];
+      // Authors are comma-separated in dc:creator
+      const authors = (item['dc:creator'] ?? '')
+        .split(',')
+        .map((a: string) => a.trim())
+        .filter(Boolean);
 
-    const papers = entries.map((entry, index) => {
-      const authorList = Array.isArray(entry.author)
-        ? entry.author
-        : entry.author
-        ? [entry.author]
+      // Strip the "arXiv:XXXX Announce Type: xxx \nAbstract: " prefix from description
+      const rawDesc = typeof item.description === 'string' ? item.description : '';
+      const abstractMatch = rawDesc.match(/Abstract:\s*([\s\S]*)/i);
+      const abstract = abstractMatch
+        ? abstractMatch[1].replace(/\s+/g, ' ').trim()
+        : rawDesc.replace(/\s+/g, ' ').trim();
+
+      const categories = Array.isArray(item.category)
+        ? item.category
+        : item.category
+        ? [item.category]
         : [];
 
-      const categoryList = Array.isArray(entry.category)
-        ? entry.category
-        : entry.category
-        ? [entry.category]
-        : [];
-
-      const linkList = Array.isArray(entry.link)
-        ? entry.link
-        : entry.link
-        ? [entry.link]
-        : [];
-
-      const authors = authorList.map((a) => a.name).filter(Boolean);
-      const categories = categoryList.map((c) => c['@_term']).filter(Boolean);
-
-      const pdfLink = linkList.find((l) => l['@_type'] === 'application/pdf');
-      const absLink = linkList.find((l) => l['@_rel'] === 'alternate');
-
-      // Extract arXiv ID from URL like http://arxiv.org/abs/2501.12345v1
-      const idStr = typeof entry.id === 'string' ? entry.id.trim() : '';
-      const arxivId = idStr.includes('/abs/')
-        ? idStr.split('/abs/')[1]
-        : idStr;
+      const absUrl = typeof item.link === 'string' ? item.link : `https://arxiv.org/abs/${arxivId}`;
 
       return {
         id: arxivId || `paper-${index}`,
         index: index + 1,
-        title: (entry.title || '').replace(/\s+/g, ' ').trim(),
+        title: (item.title || '').replace(/\s+/g, ' ').trim(),
         authors,
-        abstract: (entry.summary || '').replace(/\s+/g, ' ').trim(),
-        published: entry.published,
-        updated: entry.updated,
+        abstract,
+        published: item.pubDate,
+        updated: item.pubDate,
         categories,
-        pdfUrl: pdfLink?.['@_href'] || `https://arxiv.org/pdf/${arxivId}`,
-        absUrl: absLink?.['@_href'] || `https://arxiv.org/abs/${arxivId}`,
+        pdfUrl: `https://arxiv.org/pdf/${arxivId}`,
+        absUrl,
       };
     });
 
-    const total = parseInt(
-      String(feed['opensearch:totalResults'] ?? papers.length),
-      10
-    );
+    const papers = allPapers.slice(start, start + maxResults);
 
-    return NextResponse.json({ papers, total, category });
+    return NextResponse.json({ papers, total: allPapers.length, category });
   } catch (error) {
     console.error('[papers] fetch error:', error);
     return NextResponse.json(
