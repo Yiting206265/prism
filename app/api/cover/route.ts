@@ -9,14 +9,14 @@ export async function POST(request: NextRequest) {
       'dreamshaper-8-lcm':            '@cf/lykon/dreamshaper-8-lcm',
     };
 
-    const { title, abstract, model: modelKey = 'stable-diffusion-xl-base-1.0' } =
+    const { title, abstract, model: modelKey = 'flux-1-schnell' } =
       await request.json() as { title?: string; abstract?: string; model?: string };
 
     if (!title || !abstract) {
       return new Response('Missing title or abstract', { status: 400 });
     }
 
-    const cfModel = ALLOWED_MODELS[modelKey] ?? ALLOWED_MODELS['stable-diffusion-xl-base-1.0'];
+    const cfModel = ALLOWED_MODELS[modelKey] ?? ALLOWED_MODELS['flux-1-schnell'];
 
     // Step 1: Groq → evocative visual prompt
     const promptRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {

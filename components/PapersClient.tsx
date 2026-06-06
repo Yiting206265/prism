@@ -53,8 +53,8 @@ function SkeletonList() {
 const PAGE_SIZE = 20;
 
 const COVER_MODELS = [
-  { key: 'stable-diffusion-xl-base-1.0',  label: 'SDXL Base' },
   { key: 'flux-1-schnell',                label: 'Flux Schnell' },
+  { key: 'stable-diffusion-xl-base-1.0',  label: 'SDXL Base' },
   { key: 'stable-diffusion-xl-lightning', label: 'SDXL Lightning' },
   { key: 'dreamshaper-8-lcm',             label: 'Dreamshaper' },
 ];
@@ -67,7 +67,7 @@ export default function PapersClient() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError]           = useState<string | null>(null);
   const [offset, setOffset]         = useState(0);
-  const [coverModel, setCoverModel] = useState('stable-diffusion-xl-base-1.0');
+  const [coverModel, setCoverModel] = useState('flux-1-schnell');
   const [coverVersion, setCoverVersion] = useState(0);
 
   const fetchPapers = useCallback(async (cat: string, start = 0, append = false) => {
