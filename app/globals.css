@@ -412,7 +412,14 @@ body {
   line-height: 1;
 }
 
-.paper-body { min-width: 0; }
+.paper-body {
+  min-width: 0;
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.paper-content { flex: 1; min-width: 0; }
 
 .paper-title {
   font-family: var(--serif);
@@ -569,6 +576,29 @@ body {
 
 .action-btn.pdf-btn:hover { color: var(--text-primary); }
 
+/* ── Paper cover ─────────────────────────── */
+.paper-cover {
+  flex-shrink: 0;
+  width: 112px;
+  padding-top: 0.25rem;
+}
+
+.paper-cover-img,
+.paper-cover-placeholder {
+  width: 112px;
+  height: 149px; /* 3:4, matches 768×1024 generation size */
+  display: block;
+  object-fit: cover;
+  object-position: center top; /* preserve top text/title */
+  border: 1px solid var(--border);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.paper-cover-placeholder {
+  background-size: 300px 100%;
+}
+
 /* ── Skeleton ────────────────────────────── */
 .skeleton-list { display: flex; flex-direction: column; }
 
@@ -669,6 +699,10 @@ body {
 
 /* ── Mobile ──────────────────────────────── */
 @media (max-width: 640px) {
+  .paper-cover { display: none; }
+
+  .paper-body { display: block; }
+
   .paper-card {
     grid-template-columns: 2rem 1fr;
     gap: 0 1rem;

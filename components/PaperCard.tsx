@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export interface Paper {
   id: string;
@@ -38,11 +38,52 @@ function fmtAuthors(authors: string[], max = 3): string {
 }
 
 type SumState = 'idle' | 'streaming' | 'done' | 'error';
+type CoverState = 'idle' | 'loading' | 'done' | 'error';
 
 export default function PaperCard({ paper, index }: { paper: Paper; index: number }) {
   const [expanded, setExpanded] = useState(false);
   const [summary, setSummary]   = useState('');
   const [sumState, setSumState] = useState<SumState>('idle');
+  const [coverUrl, setCoverUrl]     = useState('');
+  const [coverState, setCoverState] = useState<CoverState>('idle');
+  const cardRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          observer.disconnect();
+          fetchCover();
+        }
+      },
+      { threshold: 0.15 }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function fetchCover() {
+    if (coverState !== 'idle') return;
+    setCoverState('loading');
+    try {
+      const res = await fetch('/api/cover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: paper.title, abstract: paper.abstract }),
+      });
+      if (!res.ok) throw new Error(`${res.status}`);
+      const blob = await res.blob();
+      setCoverUrl(URL.createObjectURL(blob));
+      setCoverState('done');
+    } catch {
+      setCoverState('error');
+    }
+  }
 
   const num = String(index).padStart(2, '0');
   const primaryCats = paper.categories.slice(0, 3);
@@ -81,12 +122,14 @@ export default function PaperCard({ paper, index }: { paper: Paper; index: numbe
 
   return (
     <article
+      ref={cardRef}
       className="paper-card"
       style={{ animationDelay: `${Math.min((index - 1) * 40, 400)}ms` }}
     >
       <span className="paper-num" aria-hidden="true">{num}</span>
 
       <div className="paper-body">
+        <div className="paper-content">
         {/* Title */}
         <h2 className="paper-title">
           <a href={paper.absUrl} target="_blank" rel="noopener noreferrer">
@@ -175,6 +218,21 @@ export default function PaperCard({ paper, index }: { paper: Paper; index: numbe
           >
             arXiv ↗
           </a>
+        </div>
+        </div>{/* end paper-content */}
+
+        {/* Cover */}
+        <div className="paper-cover" aria-hidden="true">
+          {coverState === 'loading' && (
+            <div className="paper-cover-placeholder skeleton-block" />
+          )}
+          {coverState === 'done' && coverUrl && (
+            <img
+              src={coverUrl}
+              alt=""
+              className="paper-cover-img"
+            />
+          )}
         </div>
       </div>
     </article>
