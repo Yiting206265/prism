@@ -2,11 +2,21 @@ import { NextRequest } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { title, abstract } = await request.json() as { title?: string; abstract?: string };
+    const ALLOWED_MODELS: Record<string, string> = {
+      'flux-1-schnell':               '@cf/black-forest-labs/flux-1-schnell',
+      'stable-diffusion-xl-base-1.0': '@cf/stabilityai/stable-diffusion-xl-base-1.0',
+      'stable-diffusion-xl-lightning':'@cf/bytedance/stable-diffusion-xl-lightning',
+      'dreamshaper-8-lcm':            '@cf/lykon/dreamshaper-8-lcm',
+    };
+
+    const { title, abstract, model: modelKey = 'stable-diffusion-xl-base-1.0' } =
+      await request.json() as { title?: string; abstract?: string; model?: string };
 
     if (!title || !abstract) {
       return new Response('Missing title or abstract', { status: 400 });
     }
+
+    const cfModel = ALLOWED_MODELS[modelKey] ?? ALLOWED_MODELS['stable-diffusion-xl-base-1.0'];
 
     // Step 1: Groq → evocative visual prompt
     const promptRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -46,14 +56,14 @@ Output only the image generation prompt, as one clean paragraph.`,
 
     // Step 2: Cloudflare Workers AI → FLUX Schnell image
     const cfRes = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACCOUNT_ID}/ai/run/@cf/black-forest-labs/flux-1-schnell`,
+      `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACCOUNT_ID}/ai/run/${cfModel}`,
       {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${process.env.CF_API_TOKEN}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prompt: visualPrompt, num_steps: 4, width: 768, height: 1024 }),
+        body: JSON.stringify({ prompt: visualPrompt }),
       }
     );
 
@@ -63,14 +73,21 @@ Output only the image generation prompt, as one clean paragraph.`,
       return new Response(err, { status: cfRes.status });
     }
 
-    const cfData = await cfRes.json();
-    const base64 = cfData?.result?.image as string | undefined;
+    const contentType = cfRes.headers.get('content-type') ?? '';
+    let buffer: Buffer;
 
-    if (!base64) {
-      return new Response('No image returned from CF AI', { status: 502 });
+    if (contentType.includes('image')) {
+      // SDXL and some models return raw binary
+      buffer = Buffer.from(await cfRes.arrayBuffer());
+    } else {
+      // FLUX Schnell returns base64 JSON
+      const cfData = await cfRes.json();
+      const base64 = cfData?.result?.image as string | undefined;
+      if (!base64) {
+        return new Response('No image returned from CF AI', { status: 502 });
+      }
+      buffer = Buffer.from(base64, 'base64');
     }
-
-    const buffer = Buffer.from(base64, 'base64');
 
     return new Response(buffer, {
       headers: {

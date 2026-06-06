@@ -40,7 +40,7 @@ function fmtAuthors(authors: string[], max = 3): string {
 type SumState = 'idle' | 'streaming' | 'done' | 'error';
 type CoverState = 'idle' | 'loading' | 'done' | 'error';
 
-export default function PaperCard({ paper, index }: { paper: Paper; index: number }) {
+export default function PaperCard({ paper, index, coverModel }: { paper: Paper; index: number; coverModel: string }) {
   const [expanded, setExpanded] = useState(false);
   const [summary, setSummary]   = useState('');
   const [sumState, setSumState] = useState<SumState>('idle');
@@ -75,7 +75,7 @@ export default function PaperCard({ paper, index }: { paper: Paper; index: numbe
       const res = await fetch('/api/cover', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: paper.title, abstract: paper.abstract }),
+        body: JSON.stringify({ title: paper.title, abstract: paper.abstract, model: coverModel }),
       });
       if (!res.ok) throw new Error(`${res.status}`);
       const blob = await res.blob();
