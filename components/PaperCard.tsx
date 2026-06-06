@@ -56,7 +56,8 @@ export default function PaperCard({ paper, index }: { paper: Paper; index: numbe
       (entries) => {
         if (entries[0].isIntersecting) {
           observer.disconnect();
-          fetchCover();
+          // stagger requests so cards don't all fire simultaneously
+          setTimeout(fetchCover, (index % 5) * 600);
         }
       },
       { threshold: 0.15 }
