@@ -3,7 +3,7 @@ import { createHash } from 'crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync } from 'fs';
 import { join } from 'path';
 
-const CACHE_DIR = join(process.cwd(), '.cache', 'covers');
+const CACHE_DIR = process.env.VERCEL ? join('/tmp', 'covers') : join(process.cwd(), '.cache', 'covers');
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 function getCacheKey(title: string, model: string): string {
