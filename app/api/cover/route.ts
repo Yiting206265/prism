@@ -1,4 +1,30 @@
 import { NextRequest } from 'next/server';
+import { createHash } from 'crypto';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync } from 'fs';
+import { join } from 'path';
+
+const CACHE_DIR = join(process.cwd(), '.cache', 'covers');
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+function getCacheKey(title: string, model: string): string {
+  return createHash('sha256').update(`${model}:${title}`).digest('hex').slice(0, 32);
+}
+
+function readCache(key: string): { buffer: Buffer; contentType: string } | null {
+  const metaPath = join(CACHE_DIR, `${key}.json`);
+  const dataPath = join(CACHE_DIR, `${key}.bin`);
+  if (!existsSync(metaPath) || !existsSync(dataPath)) return null;
+  const age = Date.now() - statSync(dataPath).mtimeMs;
+  if (age > CACHE_TTL_MS) return null;
+  const { contentType } = JSON.parse(readFileSync(metaPath, 'utf8'));
+  return { buffer: readFileSync(dataPath), contentType };
+}
+
+function writeCache(key: string, buffer: Buffer, contentType: string): void {
+  mkdirSync(CACHE_DIR, { recursive: true });
+  writeFileSync(join(CACHE_DIR, `${key}.bin`), buffer);
+  writeFileSync(join(CACHE_DIR, `${key}.json`), JSON.stringify({ contentType }));
+}
 
 function makeSvgCover(title: string): string {
   // Hash title to pick a palette
@@ -72,6 +98,15 @@ export async function POST(request: NextRequest) {
 
     const cfModel = ALLOWED_MODELS[modelKey] ?? ALLOWED_MODELS['flux-1-schnell'];
     const useCloudflare = !!process.env.CF_ACCOUNT_ID && !!process.env.CF_API_TOKEN;
+
+    // Return cached image if available
+    const cacheKey = getCacheKey(title, modelKey);
+    const cached = readCache(cacheKey);
+    if (cached) {
+      return new Response(cached.buffer, {
+        headers: { 'Content-Type': cached.contentType, 'Cache-Control': 'public, max-age=86400', 'X-Cache': 'HIT' },
+      });
+    }
 
     // Step 1: Groq → evocative visual prompt
     const promptRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -168,19 +203,16 @@ Output only the image generation prompt, as one clean paragraph.`,
     // Fallback 2: styled SVG cover using the paper title
     if (!buffer) {
       const svg = makeSvgCover(title);
-      return new Response(svg, {
-        headers: {
-          'Content-Type': 'image/svg+xml',
-          'Cache-Control': 'public, max-age=3600',
-        },
+      const svgBuffer = Buffer.from(svg);
+      writeCache(cacheKey, svgBuffer, 'image/svg+xml');
+      return new Response(svgBuffer, {
+        headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=3600', 'X-Cache': 'MISS' },
       });
     }
 
+    writeCache(cacheKey, buffer, 'image/png');
     return new Response(buffer, {
-      headers: {
-        'Content-Type': 'image/png',
-        'Cache-Control': 'public, max-age=86400',
-      },
+      headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400', 'X-Cache': 'MISS' },
     });
   } catch (error) {
     console.error('[cover] error:', error);
