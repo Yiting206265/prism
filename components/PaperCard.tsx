@@ -38,13 +38,20 @@ function fmtAuthors(authors: string[], max = 3): string {
 }
 
 type SumState = 'idle' | 'streaming' | 'done' | 'error';
+type Variant = 'featured' | 'grid';
 
-export default function PaperCard({ paper, index }: { paper: Paper; index: number }) {
-  const [expanded, setExpanded] = useState(false);
+interface Props {
+  paper: Paper;
+  index: number;
+  variant?: Variant;
+  onSummarized?: () => void;
+}
+
+export default function PaperCard({ paper, index, variant = 'grid', onSummarized }: Props) {
+  const [expanded, setExpanded] = useState(variant === 'featured');
   const [summary, setSummary]   = useState('');
   const [sumState, setSumState] = useState<SumState>('idle');
 
-  const num = String(index).padStart(2, '0');
   const primaryCats = paper.categories.slice(0, 3);
 
   async function handleSummarize() {
@@ -73,6 +80,7 @@ export default function PaperCard({ paper, index }: { paper: Paper; index: numbe
       }
 
       setSumState('done');
+      onSummarized?.();
     } catch {
       setSummary('Could not generate summary. Please try again.');
       setSumState('error');
@@ -81,63 +89,65 @@ export default function PaperCard({ paper, index }: { paper: Paper; index: numbe
 
   return (
     <article
-      className="paper-card"
+      className={`paper-card-${variant}`}
       style={{ animationDelay: `${Math.min((index - 1) * 40, 400)}ms` }}
     >
-      <span className="paper-num" aria-hidden="true">{num}</span>
+      {variant === 'featured' && (
+        <span className="paper-featured-label">Latest</span>
+      )}
 
-      <div className="paper-body">
-        {/* Title */}
-        <h2 className="paper-title">
-          <a href={paper.absUrl} target="_blank" rel="noopener noreferrer">
-            {paper.title}
-          </a>
-        </h2>
+      {/* Title */}
+      <h2 className="paper-title">
+        <a href={paper.absUrl} target="_blank" rel="noopener noreferrer">
+          {paper.title}
+        </a>
+      </h2>
 
-        {/* Meta row */}
-        <div className="paper-meta">
-          <span className="paper-authors">{fmtAuthors(paper.authors)}</span>
+      {/* Meta row */}
+      <div className="paper-meta">
+        <span className="paper-authors">{fmtAuthors(paper.authors)}</span>
 
-          {primaryCats.length > 0 && (
-            <>
-              <span className="meta-sep">·</span>
-              <span className="paper-cats">
-                {primaryCats.map((c) => (
-                  <span key={c} className="paper-cat-tag">{c}</span>
-                ))}
-              </span>
-            </>
-          )}
-
-          {paper.published && (
-            <>
-              <span className="meta-sep">·</span>
-              <span className="paper-date">{formatDate(paper.published)}</span>
-            </>
-          )}
-        </div>
-
-        {/* Abstract */}
-        <div className={`paper-abstract-wrap ${expanded ? 'expanded' : 'collapsed'}`}>
-          <p className="paper-abstract">{paper.abstract}</p>
-        </div>
-
-        {/* AI Summary */}
-        {(summary || sumState === 'streaming') && (
-          <div className="paper-summary">
-            <div className="summary-header">
-              <span>✦</span>
-              <span>AI Summary</span>
-              {sumState === 'streaming' && (
-                <span className="summary-cursor">▌</span>
-              )}
-            </div>
-            <p className="summary-body">{summary}</p>
-          </div>
+        {primaryCats.length > 0 && (
+          <>
+            <span className="meta-sep">·</span>
+            <span className="paper-cats">
+              {primaryCats.map((c) => (
+                <span key={c} className="paper-cat-tag">{c}</span>
+              ))}
+            </span>
+          </>
         )}
 
-        {/* Actions */}
-        <div className="paper-actions">
+        {paper.published && (
+          <>
+            <span className="meta-sep">·</span>
+            <span className="paper-date">{formatDate(paper.published)}</span>
+          </>
+        )}
+      </div>
+
+      {/* Abstract */}
+      <div className={`paper-abstract-wrap ${expanded ? 'expanded' : 'collapsed'}`}>
+        <p className="paper-abstract">{paper.abstract}</p>
+      </div>
+
+      {/* AI Summary */}
+      {(summary || sumState === 'streaming') && (
+        <div className="paper-summary">
+          <div className="summary-header">
+            <span>✦</span>
+            <span>AI Summary</span>
+            {sumState === 'streaming' && (
+              <span className="summary-cursor">▌</span>
+            )}
+          </div>
+          <p className="summary-body">{summary}</p>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="paper-actions">
+        {variant === 'grid' && (
           <button
             className="action-btn"
             onClick={() => setExpanded((e) => !e)}
@@ -145,37 +155,37 @@ export default function PaperCard({ paper, index }: { paper: Paper; index: numbe
           >
             {expanded ? '↑ Collapse' : '↓ Abstract'}
           </button>
+        )}
 
-          <button
-            className={`action-btn ai-btn${sumState === 'done' ? ' summarized' : ''}`}
-            onClick={handleSummarize}
-            disabled={sumState === 'streaming'}
-          >
-            {sumState === 'streaming'
-              ? '✦ Summarizing…'
-              : sumState === 'done'
-              ? '✦ Summarized'
-              : '✦ Summarize'}
-          </button>
+        <button
+          className={`action-btn ai-btn${sumState === 'done' ? ' summarized' : ''}`}
+          onClick={handleSummarize}
+          disabled={sumState === 'streaming'}
+        >
+          {sumState === 'streaming'
+            ? '✦ Summarizing…'
+            : sumState === 'done'
+            ? '✦ Summarized'
+            : '✦ Summarize'}
+        </button>
 
-          <a
-            href={paper.pdfUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="action-btn pdf-btn"
-          >
-            PDF ↗
-          </a>
+        <a
+          href={paper.pdfUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="action-btn pdf-btn"
+        >
+          PDF ↗
+        </a>
 
-          <a
-            href={paper.absUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="action-btn"
-          >
-            arXiv ↗
-          </a>
-        </div>
+        <a
+          href={paper.absUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="action-btn"
+        >
+          arXiv ↗
+        </a>
       </div>
     </article>
   );

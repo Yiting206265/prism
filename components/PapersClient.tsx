@@ -1,23 +1,24 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Hero from './Hero';
 import CategorySelector from './CategorySelector';
 import PaperCard, { type Paper } from './PaperCard';
 
 const CATEGORY_NAMES: Record<string, string> = {
-  'cs.AI':   'Artificial Intelligence',
-  'cs.LG':   'Machine Learning',
-  'cs.CV':   'Computer Vision',
-  'cs.CL':   'Computation & Language',
-  'cs.RO':   'Robotics',
-  'cs.NE':   'Neural & Evolutionary Computing',
-  'cs.IR':   'Information Retrieval',
+  'cs.AI': 'Artificial Intelligence',
+  'cs.LG': 'Machine Learning',
+  'cs.CV': 'Computer Vision',
+  'cs.CL': 'Computation & Language',
+  'cs.RO': 'Robotics',
+  'cs.NE': 'Neural & Evolutionary Computing',
+  'cs.IR': 'Information Retrieval',
   'stat.ML': 'Statistics — Machine Learning',
-  'quant-ph':          'Quantum Physics',
+  'quant-ph': 'Quantum Physics',
   'cond-mat.mes-hall': 'Condensed Matter',
-  'hep-th':            'High Energy Theory',
-  'astro-ph.GA':       'Astrophysics',
-  'physics.optics':    'Optics',
+  'hep-th': 'High Energy Theory',
+  'astro-ph.GA': 'Astrophysics',
+  'physics.optics': 'Optics',
   'q-bio.NC': 'Neurons & Cognition',
   'q-bio.GN': 'Genomics',
   'q-bio.BM': 'Biomolecules',
@@ -34,18 +35,23 @@ const CATEGORY_NAMES: Record<string, string> = {
 function SkeletonList() {
   return (
     <div className="skeleton-list">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="skeleton-card">
-          <div className="skeleton-block sk-num" style={{ animationDelay: `${i * 60}ms` }} />
-          <div className="skeleton-col">
-            <div className="skeleton-block sk-title"  style={{ animationDelay: `${i * 60}ms` }} />
-            <div className="skeleton-block sk-title-2" style={{ animationDelay: `${i * 60 + 40}ms` }} />
-            <div className="skeleton-block sk-meta"   style={{ animationDelay: `${i * 60 + 80}ms` }} />
-            <div className="skeleton-block sk-line"   style={{ animationDelay: `${i * 60 + 120}ms` }} />
+      <div className="skeleton-card-featured">
+        <div className="skeleton-block sk-title" style={{ width: '85%' }} />
+        <div className="skeleton-block sk-title-2" style={{ width: '60%' }} />
+        <div className="skeleton-block sk-meta" style={{ marginTop: '0.6rem' }} />
+        <div className="skeleton-block sk-line" style={{ marginTop: '0.9rem' }} />
+        <div className="skeleton-block sk-line-2" />
+      </div>
+      <div className="skeleton-grid">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="skeleton-card-grid">
+            <div className="skeleton-block sk-title" style={{ animationDelay: `${i * 60}ms` }} />
+            <div className="skeleton-block sk-meta" style={{ animationDelay: `${i * 60 + 80}ms` }} />
+            <div className="skeleton-block sk-line" style={{ animationDelay: `${i * 60 + 120}ms` }} />
             <div className="skeleton-block sk-line-2" style={{ animationDelay: `${i * 60 + 160}ms` }} />
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
@@ -53,35 +59,75 @@ function SkeletonList() {
 const PAGE_SIZE = 20;
 
 export default function PapersClient() {
-  const [category, setCategory]     = useState('cs.AI');
-  const [papers, setPapers]         = useState<Paper[]>([]);
-  const [total, setTotal]           = useState(0);
-  const [isLoading, setIsLoading]   = useState(false);
+  const [category, setCategory] = useState('cs.AI');
+  const [papers, setPapers] = useState<Paper[]>([]);
+  const [total, setTotal] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [error, setError]           = useState<string | null>(null);
-  const [offset, setOffset]         = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [offset, setOffset] = useState(0);
+
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [categoriesLive, setCategoriesLive] = useState(0);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [asOf, setAsOf] = useState<string | null>(null);
 
   const fetchPapers = useCallback(async (cat: string, start = 0, append = false) => {
     if (append) setIsLoadingMore(true);
-    else { setIsLoading(true); setError(null); setPapers([]); }
+    else {
+      setIsLoading(true);
+      setError(null);
+      setPapers([]);
+    }
 
     try {
-      const res = await fetch(`/api/papers?category=${encodeURIComponent(cat)}&maxResults=${PAGE_SIZE}&start=${start}`);
+      const res = await fetch(
+        `/api/papers?category=${encodeURIComponent(cat)}&maxResults=${PAGE_SIZE}&start=${start}`
+      );
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || `HTTP ${res.status}`);
       }
       const data = await res.json();
       const newPapers: Paper[] = data.papers ?? [];
-      setPapers((prev) => append ? [...prev, ...newPapers] : newPapers);
+      setPapers((prev) => (append ? [...prev, ...newPapers] : newPapers));
       setTotal(data.total ?? 0);
       setOffset(start + newPapers.length);
+      // Keep hero/chip counts in sync with the live papers feed for this category
+      if (typeof data.total === 'number') {
+        setCounts((prev) => ({ ...prev, [cat]: data.total }));
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load papers.');
     } finally {
       setIsLoading(false);
       setIsLoadingMore(false);
     }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setStatsLoading(true);
+      try {
+        const res = await fetch('/api/stats');
+        if (!res.ok) throw new Error('stats failed');
+        const data = await res.json();
+        if (cancelled) return;
+        setCounts(data.counts ?? {});
+        setCategoriesLive(data.categoriesLive ?? 0);
+        setAsOf(data.asOf ?? null);
+      } catch {
+        if (!cancelled) {
+          setCategoriesLive(Object.keys(CATEGORY_NAMES).length);
+        }
+      } finally {
+        if (!cancelled) setStatsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -103,19 +149,34 @@ export default function PapersClient() {
   };
 
   const categoryLabel = CATEGORY_NAMES[category] ?? category;
+  const newToday = counts[category] ?? total;
 
   return (
     <>
-      <CategorySelector selected={category} onChange={handleCategoryChange} />
+      <Hero
+        categoryCode={category}
+        categoryLabel={categoryLabel}
+        newToday={newToday}
+        showing={papers.length}
+        categoriesLive={categoriesLive || Object.keys(counts).length}
+        statsLoading={statsLoading && !(category in counts) && total === 0}
+        asOf={asOf}
+      />
+
+      <CategorySelector
+        selected={category}
+        onChange={handleCategoryChange}
+        counts={counts}
+        countsLoading={statsLoading}
+      />
 
       <div className="papers-section">
-        {/* Section header */}
         <div className="papers-header">
           <div className="papers-title">
             <span className="papers-category-name">{categoryLabel}</span>
             {!isLoading && papers.length > 0 && (
               <span className="papers-count-badge">
-                {papers.length} of {total.toLocaleString()} results
+                {papers.length} of {total.toLocaleString()} new today
               </span>
             )}
           </div>
@@ -132,7 +193,6 @@ export default function PapersClient() {
           </div>
         </div>
 
-        {/* States */}
         {isLoading && <SkeletonList />}
 
         {!isLoading && error && (
@@ -152,9 +212,22 @@ export default function PapersClient() {
 
         {!isLoading && !error && papers.length > 0 && (
           <div>
-            {papers.map((paper, i) => (
-              <PaperCard key={paper.id} paper={paper} index={i + 1} />
-            ))}
+            <PaperCard
+              paper={papers[0]}
+              index={1}
+              variant="featured"
+            />
+
+            <div className="papers-grid">
+              {papers.slice(1).map((paper, i) => (
+                <PaperCard
+                  key={paper.id}
+                  paper={paper}
+                  index={i + 2}
+                  variant="grid"
+                />
+              ))}
+            </div>
 
             {offset < total && (
               <div className="load-more-wrap">

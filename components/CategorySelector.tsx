@@ -14,24 +14,24 @@ const GROUPS: CategoryGroup[] = [
   {
     label: 'AI & ML',
     categories: [
-      { code: 'cs.AI',   label: 'cs.AI'   },
-      { code: 'cs.LG',   label: 'cs.LG'   },
-      { code: 'cs.CV',   label: 'cs.CV'   },
-      { code: 'cs.CL',   label: 'cs.CL'   },
-      { code: 'cs.RO',   label: 'cs.RO'   },
-      { code: 'cs.NE',   label: 'cs.NE'   },
-      { code: 'cs.IR',   label: 'cs.IR'   },
+      { code: 'cs.AI', label: 'cs.AI' },
+      { code: 'cs.LG', label: 'cs.LG' },
+      { code: 'cs.CV', label: 'cs.CV' },
+      { code: 'cs.CL', label: 'cs.CL' },
+      { code: 'cs.RO', label: 'cs.RO' },
+      { code: 'cs.NE', label: 'cs.NE' },
+      { code: 'cs.IR', label: 'cs.IR' },
       { code: 'stat.ML', label: 'stat.ML' },
     ],
   },
   {
     label: 'Physics',
     categories: [
-      { code: 'quant-ph',          label: 'quant-ph'  },
-      { code: 'cond-mat.mes-hall', label: 'cond-mat'  },
-      { code: 'hep-th',            label: 'hep-th'    },
-      { code: 'astro-ph.GA',       label: 'astro-ph'  },
-      { code: 'physics.optics',    label: 'optics'    },
+      { code: 'quant-ph', label: 'quant-ph' },
+      { code: 'cond-mat.mes-hall', label: 'cond-mat' },
+      { code: 'hep-th', label: 'hep-th' },
+      { code: 'astro-ph.GA', label: 'astro-ph' },
+      { code: 'physics.optics', label: 'optics' },
     ],
   },
   {
@@ -65,27 +65,49 @@ const GROUPS: CategoryGroup[] = [
 interface Props {
   selected: string;
   onChange: (category: string) => void;
+  counts?: Record<string, number>;
+  countsLoading?: boolean;
 }
 
-export default function CategorySelector({ selected, onChange }: Props) {
+export default function CategorySelector({
+  selected,
+  onChange,
+  counts = {},
+  countsLoading = false,
+}: Props) {
   return (
     <div className="cat-strip">
       <div className="cat-strip-inner">
         {GROUPS.map((group) => (
           <div key={group.label} className="cat-row">
-            <span className="cat-group-lbl" aria-hidden="true">{group.label}</span>
-            {group.categories.map((cat) => (
-              <button
-                key={cat.code}
-                role="tab"
-                aria-selected={selected === cat.code}
-                className={`cat-btn${selected === cat.code ? ' active' : ''}`}
-                onClick={() => onChange(cat.code)}
-                title={cat.code}
-              >
-                {cat.label}
-              </button>
-            ))}
+            <span className="cat-group-lbl" aria-hidden="true">
+              {group.label}
+            </span>
+            {group.categories.map((cat) => {
+              const count = counts[cat.code];
+              const hasCount = typeof count === 'number';
+              return (
+                <button
+                  key={cat.code}
+                  role="tab"
+                  aria-selected={selected === cat.code}
+                  className={`cat-btn${selected === cat.code ? ' active' : ''}`}
+                  onClick={() => onChange(cat.code)}
+                  title={
+                    hasCount
+                      ? `${cat.code} — ${count.toLocaleString()} new today`
+                      : cat.code
+                  }
+                >
+                  <span className="cat-btn-code">{cat.label}</span>
+                  <span
+                    className={`cat-btn-count${countsLoading && !hasCount ? ' loading' : ''}`}
+                  >
+                    {hasCount ? count.toLocaleString() : countsLoading ? '·' : '—'}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         ))}
       </div>
