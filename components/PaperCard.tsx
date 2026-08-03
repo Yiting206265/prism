@@ -130,10 +130,12 @@ export default function PaperCard({ paper, index, variant = 'grid', coverModel, 
     }
   }
 
+  const isOpen = expanded || summary.length > 0 || sumState === 'streaming';
+
   return (
     <article
       ref={cardRef}
-      className={`paper-card-${variant}`}
+      className={`paper-card-${variant}${isOpen ? ' is-open' : ''}`}
       style={{ animationDelay: `${Math.min((index - 1) * 40, 400)}ms` }}
     >
       {variant === 'featured' && (

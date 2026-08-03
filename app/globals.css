@@ -589,6 +589,15 @@ body {
 
 .paper-card-grid:hover { border-color: var(--border-strong); }
 
+/* Expanded abstract / AI summary needs more room than the uniform grid
+   height allows — let the card grow instead of clipping the content. */
+.paper-card-grid.is-open {
+  height: auto;
+  min-height: 330px;
+}
+
+.paper-card-grid.is-open .paper-content { height: auto; }
+
 .paper-card-grid .paper-title {
   font-size: 1.15rem;
   max-width: none;
