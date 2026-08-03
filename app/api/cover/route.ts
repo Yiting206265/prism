@@ -27,23 +27,15 @@ function writeCache(key: string, buffer: Buffer, contentType: string): void {
 }
 
 // Purely abstract — no baked-in text — since this now renders as a tinted
-// background behind the real title, not a standalone thumbnail.
+// background behind the real title, not a standalone thumbnail. Solid black
+// rather than the old varied color palette, so it reads as an intentional
+// minimal state (matching the site's monochrome aesthetic) rather than a
+// broken/inconsistent one — this is shown often since image generation is
+// rate-limited.
 function makeSvgCover(title: string): string {
-  // Hash title to pick a palette and vary the composition per paper.
   let h = 0;
   for (let i = 0; i < title.length; i++) h = (Math.imul(31, h) + title.charCodeAt(i)) | 0;
   h = Math.abs(h);
-  const palettes = [
-    ['#0f2027','#203a43','#2c5364'],
-    ['#1a1a2e','#16213e','#0f3460'],
-    ['#0d0d0d','#1a0533','#2d1b69'],
-    ['#0f0c29','#302b63','#24243e'],
-    ['#000428','#004e92','#1a6b8a'],
-    ['#0a3d62','#1e5f74','#0e4d92'],
-    ['#1b2838','#2a475e','#1b4965'],
-    ['#1a1a1a','#2d4739','#1b6b4e'],
-  ];
-  const [c1, c2, c3] = palettes[h % palettes.length];
 
   // Deterministic pseudo-random "nodes" scattered across the canvas, joined
   // by thin connecting lines — reads as an abstract concept diagram.
@@ -72,17 +64,12 @@ function makeSvgCover(title: string): string {
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="768" viewBox="0 0 512 768">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="${c1}"/>
-      <stop offset="50%" stop-color="${c2}"/>
-      <stop offset="100%" stop-color="${c3}"/>
-    </linearGradient>
     <filter id="glow">
       <feGaussianBlur stdDeviation="10" result="blur"/>
       <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
   </defs>
-  <rect width="512" height="768" fill="url(#bg)"/>
+  <rect width="512" height="768" fill="#000000"/>
   <circle cx="256" cy="384" r="220" fill="white" opacity="0.05" filter="url(#glow)"/>
   ${lines}
   ${circles}
