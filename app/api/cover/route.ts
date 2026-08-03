@@ -56,15 +56,18 @@ function makeSvgCover(title: string): string {
     return { x, y, r };
   });
 
+  // Shapes are drawn near-opaque — the CSS layer applies the actual tint
+  // uniformly (same as it does for real photos), so this needs to hold its
+  // own contrast against the background gradient before that dimming.
   const lines = nodes
     .map((n, i) => {
       const next = nodes[(i + 1) % nodes.length];
-      return `<line x1="${n.x}" y1="${n.y}" x2="${next.x}" y2="${next.y}" stroke="white" stroke-width="0.75" opacity="0.18"/>`;
+      return `<line x1="${n.x}" y1="${n.y}" x2="${next.x}" y2="${next.y}" stroke="white" stroke-width="1" opacity="0.55"/>`;
     })
     .join('\n  ');
 
   const circles = nodes
-    .map((n) => `<circle cx="${n.x}" cy="${n.y}" r="${n.r}" fill="white" opacity="0.35"/>`)
+    .map((n) => `<circle cx="${n.x}" cy="${n.y}" r="${n.r}" fill="white" opacity="0.85"/>`)
     .join('\n  ');
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="768" viewBox="0 0 512 768">
