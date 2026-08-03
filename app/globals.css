@@ -492,6 +492,25 @@ body {
   gap: 0.75rem;
 }
 
+.model-select {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  appearance: none;
+  padding-right: 1.2rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath fill='%23888' d='M0 0l4 5 4-5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.4rem center;
+}
+
+.model-select:hover { border-color: var(--border-strong); color: var(--text-primary); }
+
 .refresh-btn {
   font-family: var(--mono);
   font-size: 0.65rem;
@@ -572,6 +591,15 @@ body {
 @media (max-width: 640px) {
   .papers-grid { grid-template-columns: 1fr; gap: 1rem; }
 }
+
+.paper-body {
+  min-width: 0;
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.paper-content { flex: 1; min-width: 0; }
 
 .paper-title {
   font-family: var(--serif);
@@ -728,6 +756,29 @@ body {
 
 .action-btn.pdf-btn:hover { color: var(--text-primary); }
 
+/* ── Paper cover ─────────────────────────── */
+.paper-cover {
+  flex-shrink: 0;
+  width: 112px;
+  padding-top: 0.25rem;
+}
+
+.paper-cover-img,
+.paper-cover-placeholder {
+  width: 112px;
+  height: 149px; /* 3:4, matches 768×1024 generation size */
+  display: block;
+  object-fit: cover;
+  object-position: center top; /* preserve top text/title */
+  border: 1px solid var(--border);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.paper-cover-placeholder {
+  background-size: 300px 100%;
+}
+
 /* ── Skeleton ────────────────────────────── */
 .skeleton-list { display: flex; flex-direction: column; }
 
@@ -849,6 +900,10 @@ body {
 @media (max-width: 640px) {
   .paper-card-featured { padding: 1.75rem 0 2.25rem; }
   .paper-card-grid { padding: 1.25rem; }
+
+  .paper-cover { display: none; }
+
+  .paper-body { display: block; }
 
   .papers-section {
     padding: 2rem 1rem 3rem;

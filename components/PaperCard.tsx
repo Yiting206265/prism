@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export interface Paper {
   id: string;
@@ -39,18 +39,61 @@ function fmtAuthors(authors: string[], max = 3): string {
 
 type SumState = 'idle' | 'streaming' | 'done' | 'error';
 type Variant = 'featured' | 'grid';
+type CoverState = 'idle' | 'loading' | 'done' | 'error';
 
 interface Props {
   paper: Paper;
   index: number;
   variant?: Variant;
+  coverModel: string;
   onSummarized?: () => void;
 }
 
-export default function PaperCard({ paper, index, variant = 'grid', onSummarized }: Props) {
+export default function PaperCard({ paper, index, variant = 'grid', coverModel, onSummarized }: Props) {
   const [expanded, setExpanded] = useState(variant === 'featured');
   const [summary, setSummary]   = useState('');
   const [sumState, setSumState] = useState<SumState>('idle');
+  const [coverUrl, setCoverUrl]     = useState('');
+  const [coverState, setCoverState] = useState<CoverState>('idle');
+  const cardRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          observer.disconnect();
+          // stagger requests so cards don't all fire simultaneously
+          setTimeout(fetchCover, (index % 5) * 600);
+        }
+      },
+      { threshold: 0.15 }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function fetchCover() {
+    if (coverState !== 'idle') return;
+    setCoverState('loading');
+    try {
+      const res = await fetch('/api/cover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: paper.title, abstract: paper.abstract, model: coverModel }),
+      });
+      if (!res.ok) throw new Error(`${res.status}`);
+      const blob = await res.blob();
+      setCoverUrl(URL.createObjectURL(blob));
+      setCoverState('done');
+    } catch {
+      setCoverState('error');
+    }
+  }
 
   const primaryCats = paper.categories.slice(0, 3);
 
@@ -89,6 +132,7 @@ export default function PaperCard({ paper, index, variant = 'grid', onSummarized
 
   return (
     <article
+      ref={cardRef}
       className={`paper-card-${variant}`}
       style={{ animationDelay: `${Math.min((index - 1) * 40, 400)}ms` }}
     >
@@ -96,12 +140,14 @@ export default function PaperCard({ paper, index, variant = 'grid', onSummarized
         <span className="paper-featured-label">Latest</span>
       )}
 
-      {/* Title */}
-      <h2 className="paper-title">
-        <a href={paper.absUrl} target="_blank" rel="noopener noreferrer">
-          {paper.title}
-        </a>
-      </h2>
+      <div className="paper-body">
+        <div className="paper-content">
+        {/* Title */}
+        <h2 className="paper-title">
+          <a href={paper.absUrl} target="_blank" rel="noopener noreferrer">
+            {paper.title}
+          </a>
+        </h2>
 
       {/* Meta row */}
       <div className="paper-meta">
@@ -178,14 +224,30 @@ export default function PaperCard({ paper, index, variant = 'grid', onSummarized
           PDF ↗
         </a>
 
-        <a
-          href={paper.absUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="action-btn"
-        >
-          arXiv ↗
-        </a>
+          <a
+            href={paper.absUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="action-btn"
+          >
+            arXiv ↗
+          </a>
+        </div>
+        </div>{/* end paper-content */}
+
+        {/* Cover */}
+        <div className="paper-cover" aria-hidden="true">
+          {coverState === 'loading' && (
+            <div className="paper-cover-placeholder skeleton-block" />
+          )}
+          {coverState === 'done' && coverUrl && (
+            <img
+              src={coverUrl}
+              alt=""
+              className="paper-cover-img"
+            />
+          )}
+        </div>
       </div>
     </article>
   );

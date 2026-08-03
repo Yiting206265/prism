@@ -58,14 +58,23 @@ function SkeletonList() {
 
 const PAGE_SIZE = 20;
 
+const COVER_MODELS = [
+  { key: 'flux-1-schnell',                label: 'Flux Schnell' },
+  { key: 'stable-diffusion-xl-base-1.0',  label: 'SDXL Base' },
+  { key: 'stable-diffusion-xl-lightning', label: 'SDXL Lightning' },
+  { key: 'dreamshaper-8-lcm',             label: 'Dreamshaper' },
+];
+
 export default function PapersClient() {
   const [category, setCategory] = useState('cs.AI');
   const [papers, setPapers] = useState<Paper[]>([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [offset, setOffset] = useState(0);
+  const [error, setError]           = useState<string | null>(null);
+  const [offset, setOffset]         = useState(0);
+  const [coverModel, setCoverModel] = useState('flux-1-schnell');
+  const [coverVersion, setCoverVersion] = useState(0);
 
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [categoriesLive, setCategoriesLive] = useState(0);
@@ -182,6 +191,17 @@ export default function PapersClient() {
           </div>
 
           <div className="papers-header-actions">
+            <select
+              className="model-select"
+              value={coverModel}
+              onChange={(e) => { setCoverModel(e.target.value); setCoverVersion((v) => v + 1); }}
+              title="Cover image model"
+            >
+              {COVER_MODELS.map((m) => (
+                <option key={m.key} value={m.key}>{m.label}</option>
+              ))}
+            </select>
+
             <button
               className="refresh-btn"
               onClick={() => fetchPapers(category)}
@@ -213,18 +233,21 @@ export default function PapersClient() {
         {!isLoading && !error && papers.length > 0 && (
           <div>
             <PaperCard
+              key={`${papers[0].id}-${coverVersion}`}
               paper={papers[0]}
               index={1}
               variant="featured"
+              coverModel={coverModel}
             />
 
             <div className="papers-grid">
               {papers.slice(1).map((paper, i) => (
                 <PaperCard
-                  key={paper.id}
+                  key={`${paper.id}-${coverVersion}`}
                   paper={paper}
                   index={i + 2}
                   variant="grid"
+                  coverModel={coverModel}
                 />
               ))}
             </div>
