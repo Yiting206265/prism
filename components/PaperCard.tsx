@@ -53,6 +53,7 @@ export default function PaperCard({ paper, index, variant = 'grid', coverModel, 
   const [expanded, setExpanded] = useState(variant === 'featured');
   const [summary, setSummary]   = useState('');
   const [sumState, setSumState] = useState<SumState>('idle');
+  const [summaryVisible, setSummaryVisible] = useState(true);
   const [coverUrl, setCoverUrl]     = useState('');
   const [coverState, setCoverState] = useState<CoverState>('idle');
   const cardRef = useRef<HTMLElement>(null);
@@ -98,7 +99,11 @@ export default function PaperCard({ paper, index, variant = 'grid', coverModel, 
   const primaryCats = paper.categories.slice(0, 3);
 
   async function handleSummarize() {
-    if (sumState === 'streaming' || sumState === 'done') return;
+    if (sumState === 'streaming') return;
+    if (sumState === 'done') {
+      setSummaryVisible((v) => !v);
+      return;
+    }
 
     setSumState('streaming');
     setSummary('');
@@ -130,7 +135,7 @@ export default function PaperCard({ paper, index, variant = 'grid', coverModel, 
     }
   }
 
-  const isOpen = expanded || summary.length > 0 || sumState === 'streaming';
+  const isOpen = expanded || (summary.length > 0 && summaryVisible) || sumState === 'streaming';
 
   return (
     <article
@@ -193,7 +198,7 @@ export default function PaperCard({ paper, index, variant = 'grid', coverModel, 
       </div>
 
       {/* AI Summary */}
-      {(summary || sumState === 'streaming') && (
+      {(summary || sumState === 'streaming') && summaryVisible && (
         <div className="paper-summary">
           <div className="summary-header">
             <span>✦</span>
@@ -222,11 +227,12 @@ export default function PaperCard({ paper, index, variant = 'grid', coverModel, 
           className={`action-btn ai-btn${sumState === 'done' ? ' summarized' : ''}`}
           onClick={handleSummarize}
           disabled={sumState === 'streaming'}
+          aria-expanded={sumState === 'done' ? summaryVisible : undefined}
         >
           {sumState === 'streaming'
             ? '✦ Summarizing…'
             : sumState === 'done'
-            ? '✦ Summarized'
+            ? summaryVisible ? '✦ Hide Summary' : '✦ Show Summary'
             : '✦ Summarize'}
         </button>
 
