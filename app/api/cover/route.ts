@@ -26,10 +26,13 @@ function writeCache(key: string, buffer: Buffer, contentType: string): void {
   writeFileSync(join(CACHE_DIR, `${key}.json`), JSON.stringify({ contentType }));
 }
 
+// Purely abstract — no baked-in text — since this now renders as a tinted
+// background behind the real title, not a standalone thumbnail.
 function makeSvgCover(title: string): string {
-  // Hash title to pick a palette
+  // Hash title to pick a palette and vary the composition per paper.
   let h = 0;
   for (let i = 0; i < title.length; i++) h = (Math.imul(31, h) + title.charCodeAt(i)) | 0;
+  h = Math.abs(h);
   const palettes = [
     ['#0f2027','#203a43','#2c5364'],
     ['#1a1a2e','#16213e','#0f3460'],
@@ -40,19 +43,29 @@ function makeSvgCover(title: string): string {
     ['#1b2838','#2a475e','#1b4965'],
     ['#1a1a1a','#2d4739','#1b6b4e'],
   ];
-  const [c1, c2, c3] = palettes[Math.abs(h) % palettes.length];
-  const words = title.split(' ');
-  const lines: string[] = [];
-  let line = '';
-  for (const w of words) {
-    if ((line + ' ' + w).trim().length > 18) { lines.push(line.trim()); line = w; }
-    else line = (line + ' ' + w).trim();
-  }
-  if (line) lines.push(line);
-  const maxLines = lines.slice(0, 5);
-  const midY = 384;
-  const lineH = 28;
-  const startY = midY - ((maxLines.length - 1) * lineH) / 2;
+  const [c1, c2, c3] = palettes[h % palettes.length];
+
+  // Deterministic pseudo-random "nodes" scattered across the canvas, joined
+  // by thin connecting lines — reads as an abstract concept diagram.
+  const nodeCount = 6 + (h % 4);
+  const nodes = Array.from({ length: nodeCount }, (_, i) => {
+    const seed = (h >> (i * 3)) & 0xff;
+    const x = 60 + ((seed * 37 + i * 91) % 392);
+    const y = 60 + ((seed * 53 + i * 137) % 648);
+    const r = 3 + (seed % 5);
+    return { x, y, r };
+  });
+
+  const lines = nodes
+    .map((n, i) => {
+      const next = nodes[(i + 1) % nodes.length];
+      return `<line x1="${n.x}" y1="${n.y}" x2="${next.x}" y2="${next.y}" stroke="white" stroke-width="0.75" opacity="0.18"/>`;
+    })
+    .join('\n  ');
+
+  const circles = nodes
+    .map((n) => `<circle cx="${n.x}" cy="${n.y}" r="${n.r}" fill="white" opacity="0.35"/>`)
+    .join('\n  ');
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="768" viewBox="0 0 512 768">
   <defs>
@@ -62,21 +75,14 @@ function makeSvgCover(title: string): string {
       <stop offset="100%" stop-color="${c3}"/>
     </linearGradient>
     <filter id="glow">
-      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feGaussianBlur stdDeviation="10" result="blur"/>
       <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
   </defs>
   <rect width="512" height="768" fill="url(#bg)"/>
-  <rect x="0" y="0" width="512" height="4" fill="white" opacity="0.6"/>
-  <rect x="0" y="764" width="512" height="4" fill="white" opacity="0.6"/>
-  <circle cx="256" cy="${midY}" r="160" fill="none" stroke="white" stroke-width="0.5" opacity="0.15"/>
-  <circle cx="256" cy="${midY}" r="120" fill="none" stroke="white" stroke-width="0.5" opacity="0.1"/>
-  <circle cx="256" cy="${midY}" r="200" fill="white" opacity="0.04" filter="url(#glow)"/>
-  <text x="256" y="60" font-family="Georgia,serif" font-size="11" fill="white" opacity="0.7" text-anchor="middle" letter-spacing="4">PRISM · RESEARCH</text>
-  <line x1="80" y1="72" x2="432" y2="72" stroke="white" stroke-width="0.5" opacity="0.3"/>
-  ${maxLines.map((l, i) => `<text x="256" y="${startY + i * lineH}" font-family="Georgia,serif" font-size="22" font-weight="bold" fill="white" text-anchor="middle" opacity="0.95">${l.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</text>`).join('\n  ')}
-  <line x1="80" y1="696" x2="432" y2="696" stroke="white" stroke-width="0.5" opacity="0.3"/>
-  <text x="256" y="720" font-family="Georgia,serif" font-size="10" fill="white" opacity="0.5" text-anchor="middle" letter-spacing="2">arxiv preprint</text>
+  <circle cx="256" cy="384" r="220" fill="white" opacity="0.05" filter="url(#glow)"/>
+  ${lines}
+  ${circles}
 </svg>`;
 }
 
@@ -120,14 +126,14 @@ export async function POST(request: NextRequest) {
         max_tokens: 200,
         messages: [{
           role: 'user',
-          content: `You are a scientific cover art director designing a journal cover like Nature or Science. Write an image generation prompt as one flowing paragraph (120-150 words) that describes BOTH the visual scene AND the cover text layout.
+          content: `You are an editorial illustrator creating ONE minimalist concept image for a research paper. It will be shown faded and tinted as a background texture behind the paper's real title, which is rendered separately as HTML text — so the image itself must contain ZERO text, letters, numbers, words, logos, or typography of any kind.
 
-The prompt must include:
-1. SCENE: a vivid, paper-specific central image — name the exact phenomenon, object, or concept from the paper. Add 2-3 supporting visual elements drawn from the abstract. Adapt the visual style to the field (e.g. biological, computational, physical, mathematical).
-2. TEXT OVERLAY: describe specific short text embedded in the image like a real magazine cover — a bold title at the top (2-5 words capturing the discovery), a short evocative tagline below it, and a small label or caption at the bottom corner.
-3. STYLE: end with quality tags — "cinematic, dramatic lighting, volumetric glow, ultra-detailed, premium editorial design, Nature/Science journal cover aesthetic, 8k"
+Write an image generation prompt as one flowing paragraph (80-110 words):
+1. SUBJECT: identify the single clearest visual metaphor for this paper's central idea — name the exact phenomenon, object, or process from the abstract. Render it as one clean subject with at most 1-2 supporting elements. Adapt the visual style to the field (biological, computational, physical, mathematical, social, etc).
+2. STYLE: minimalist editorial illustration — flat clean shapes, generous negative space, a muted limited color palette, soft even lighting. Simple enough to work as a faded background, not a busy poster.
+3. End the prompt explicitly with: "no text, no letters, no numbers, no words, no logos, no watermark"
 
-Be specific to THIS paper. No equations, no axis labels.
+Be specific to THIS paper's actual subject — not a generic tech/science cliché. No equations, no axis labels, no charts.
 
 Title: ${title}
 Abstract: ${abstract.slice(0, 600)}

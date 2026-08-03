@@ -535,8 +535,10 @@ body {
 
 /* ── Paper card: featured ────────────────── */
 .paper-card-featured {
+  position: relative;
+  overflow: hidden;
   display: block;
-  padding: 2.5rem 0 3rem;
+  padding: 2.5rem 2rem 3rem;
   border-bottom: 1px solid var(--border);
   animation: fadeInUp 0.3s ease both;
 }
@@ -554,6 +556,10 @@ body {
 .paper-card-featured .paper-title {
   font-size: clamp(1.75rem, 3.2vw, 2.5rem);
   max-width: 26ch;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .paper-card-featured .paper-abstract,
@@ -570,8 +576,11 @@ body {
 }
 
 .paper-card-grid {
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
+  height: 330px;
   border: 1px solid var(--border);
   padding: 1.5rem;
   animation: fadeInUp 0.3s ease both;
@@ -580,9 +589,24 @@ body {
 
 .paper-card-grid:hover { border-color: var(--border-strong); }
 
-.paper-card-grid .paper-title { font-size: 1.15rem; max-width: none; }
+.paper-card-grid .paper-title {
+  font-size: 1.15rem;
+  max-width: none;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .paper-card-grid .paper-abstract,
 .paper-card-grid .paper-summary { max-width: none; }
+
+.paper-card-grid .paper-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.paper-card-grid .paper-actions { margin-top: auto; padding-top: 1rem; }
 
 @media (max-width: 900px) {
   .papers-grid { grid-template-columns: repeat(2, 1fr); }
@@ -592,14 +616,11 @@ body {
   .papers-grid { grid-template-columns: 1fr; gap: 1rem; }
 }
 
-.paper-body {
+.paper-content {
+  position: relative;
+  z-index: 1;
   min-width: 0;
-  display: flex;
-  gap: 1.5rem;
-  align-items: flex-start;
 }
-
-.paper-content { flex: 1; min-width: 0; }
 
 .paper-title {
   font-family: var(--serif);
@@ -756,23 +777,35 @@ body {
 
 .action-btn.pdf-btn:hover { color: var(--text-primary); }
 
-/* ── Paper cover ─────────────────────────── */
+/* ── Paper cover — tinted background visualization ── */
 .paper-cover {
-  flex-shrink: 0;
-  width: 112px;
-  padding-top: 0.25rem;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
 }
 
 .paper-cover-img,
 .paper-cover-placeholder {
-  width: 112px;
-  height: 149px; /* 3:4, matches 768×1024 generation size */
+  width: 100%;
+  height: 100%;
   display: block;
   object-fit: cover;
-  object-position: center top; /* preserve top text/title */
-  border: 1px solid var(--border);
-  overflow: hidden;
-  flex-shrink: 0;
+  object-position: center top;
+  opacity: 0.32;
+  filter: grayscale(0.2) contrast(1.05);
+}
+
+.paper-cover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, var(--bg) 0%, transparent 32%, transparent 68%, var(--bg) 100%);
+}
+
+.paper-card-featured .paper-cover-img,
+.paper-card-featured .paper-cover-placeholder {
+  opacity: 0.38;
 }
 
 .paper-cover-placeholder {
@@ -898,12 +931,8 @@ body {
 
 /* ── Mobile ──────────────────────────────── */
 @media (max-width: 640px) {
-  .paper-card-featured { padding: 1.75rem 0 2.25rem; }
+  .paper-card-featured { padding: 1.75rem 1.25rem 2.25rem; }
   .paper-card-grid { padding: 1.25rem; }
-
-  .paper-cover { display: none; }
-
-  .paper-body { display: block; }
 
   .papers-section {
     padding: 2rem 1rem 3rem;

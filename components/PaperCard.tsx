@@ -140,8 +140,21 @@ export default function PaperCard({ paper, index, variant = 'grid', coverModel, 
         <span className="paper-featured-label">Latest</span>
       )}
 
-      <div className="paper-body">
-        <div className="paper-content">
+      {/* Cover — tinted background visualization */}
+      <div className="paper-cover" aria-hidden="true">
+        {coverState === 'loading' && (
+          <div className="paper-cover-placeholder skeleton-block" />
+        )}
+        {coverState === 'done' && coverUrl && (
+          <img
+            src={coverUrl}
+            alt=""
+            className="paper-cover-img"
+          />
+        )}
+      </div>
+
+      <div className="paper-content">
         {/* Title */}
         <h2 className="paper-title">
           <a href={paper.absUrl} target="_blank" rel="noopener noreferrer">
@@ -233,22 +246,7 @@ export default function PaperCard({ paper, index, variant = 'grid', coverModel, 
             arXiv ↗
           </a>
         </div>
-        </div>{/* end paper-content */}
-
-        {/* Cover */}
-        <div className="paper-cover" aria-hidden="true">
-          {coverState === 'loading' && (
-            <div className="paper-cover-placeholder skeleton-block" />
-          )}
-          {coverState === 'done' && coverUrl && (
-            <img
-              src={coverUrl}
-              alt=""
-              className="paper-cover-img"
-            />
-          )}
-        </div>
-      </div>
+      </div>{/* end paper-content */}
     </article>
   );
 }
