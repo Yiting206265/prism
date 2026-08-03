@@ -117,19 +117,23 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Step 1: Groq → evocative visual prompt
-    const promptRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
-        max_tokens: 200,
-        messages: [{
-          role: 'user',
-          content: `You are an editorial illustrator creating ONE minimalist concept image for a research paper. It will be shown faded and tinted as a background texture behind the paper's real title, which is rendered separately as HTML text — so the image itself must contain ZERO text, letters, numbers, words, logos, or typography of any kind.
+    // Step 1: Groq → evocative visual prompt. Any failure here (rate limit,
+    // outage) just falls back to the raw title instead of failing the whole
+    // request — image generation below still has its own SVG fallback too.
+    let visualPrompt = title;
+    try {
+      const promptRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'llama-3.1-8b-instant',
+          max_tokens: 200,
+          messages: [{
+            role: 'user',
+            content: `You are an editorial illustrator creating ONE minimalist concept image for a research paper. It will be shown faded and tinted as a background texture behind the paper's real title, which is rendered separately as HTML text — so the image itself must contain ZERO text, letters, numbers, words, logos, or typography of any kind.
 
 Write an image generation prompt as one flowing paragraph (80-110 words):
 1. SUBJECT: identify the single clearest visual metaphor for this paper's central idea — name the exact phenomenon, object, or process from the abstract. Render it as one clean subject with at most 1-2 supporting elements. Adapt the visual style to the field (biological, computational, physical, mathematical, social, etc).
@@ -142,45 +146,52 @@ Title: ${title}
 Abstract: ${abstract.slice(0, 600)}
 
 Output only the image generation prompt, as one clean paragraph.`,
-        }],
-      }),
-    });
+          }],
+        }),
+      });
 
-    if (!promptRes.ok) {
-      throw new Error(`Groq error: ${promptRes.status}`);
+      if (promptRes.ok) {
+        const promptData = await promptRes.json();
+        visualPrompt = promptData.choices?.[0]?.message?.content?.trim() ?? title;
+      } else {
+        console.warn('[cover] Groq unavailable, using raw title as prompt:', promptRes.status);
+      }
+    } catch (e) {
+      console.warn('[cover] Groq error, using raw title as prompt:', e instanceof Error ? e.message : e);
     }
-
-    const promptData = await promptRes.json();
-    const visualPrompt = promptData.choices?.[0]?.message?.content?.trim() ?? title;
 
     // Step 2: Generate image — Cloudflare Workers AI with Pollinations fallback
     let buffer: Buffer | null = null;
 
     if (useCloudflare) {
-      const cfRes = await fetch(
-        `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACCOUNT_ID}/ai/run/${cfModel}`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${process.env.CF_API_TOKEN}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ prompt: visualPrompt }),
-        }
-      );
+      try {
+        const cfRes = await fetch(
+          `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACCOUNT_ID}/ai/run/${cfModel}`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${process.env.CF_API_TOKEN}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ prompt: visualPrompt }),
+          }
+        );
 
-      if (cfRes.ok) {
-        const contentType = cfRes.headers.get('content-type') ?? '';
-        if (contentType.includes('image')) {
-          buffer = Buffer.from(await cfRes.arrayBuffer());
+        if (cfRes.ok) {
+          const contentType = cfRes.headers.get('content-type') ?? '';
+          if (contentType.includes('image')) {
+            buffer = Buffer.from(await cfRes.arrayBuffer());
+          } else {
+            const cfData = await cfRes.json();
+            const base64 = cfData?.result?.image as string | undefined;
+            if (base64) buffer = Buffer.from(base64, 'base64');
+          }
         } else {
-          const cfData = await cfRes.json();
-          const base64 = cfData?.result?.image as string | undefined;
-          if (base64) buffer = Buffer.from(base64, 'base64');
+          const err = await cfRes.text();
+          console.warn('[cover] CF AI unavailable, falling back:', err.slice(0, 120));
         }
-      } else {
-        const err = await cfRes.text();
-        console.warn('[cover] CF AI unavailable, falling back to Pollinations:', err.slice(0, 120));
+      } catch (e) {
+        console.warn('[cover] CF AI error, falling back:', e instanceof Error ? e.message : e);
       }
     }
 
