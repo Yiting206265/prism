@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { XMLParser } from 'fast-xml-parser';
+import { cleanLatexText } from '@/lib/cleanText';
 
 interface RssItem {
   title: string;
@@ -55,15 +56,15 @@ export async function GET(request: NextRequest) {
       // Authors are comma-separated in dc:creator
       const authors = (item['dc:creator'] ?? '')
         .split(',')
-        .map((a: string) => a.trim())
+        .map((a: string) => cleanLatexText(a))
         .filter(Boolean);
 
       // Strip the "arXiv:XXXX Announce Type: xxx \nAbstract: " prefix from description
       const rawDesc = typeof item.description === 'string' ? item.description : '';
       const abstractMatch = rawDesc.match(/Abstract:\s*([\s\S]*)/i);
-      const abstract = abstractMatch
-        ? abstractMatch[1].replace(/\s+/g, ' ').trim()
-        : rawDesc.replace(/\s+/g, ' ').trim();
+      const abstract = cleanLatexText(
+        abstractMatch ? abstractMatch[1] : rawDesc
+      );
 
       const categories = Array.isArray(item.category)
         ? item.category
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest) {
       return {
         id: arxivId || `paper-${index}`,
         index: index + 1,
-        title: (item.title || '').replace(/\s+/g, ' ').trim(),
+        title: cleanLatexText(item.title || ''),
         authors,
         abstract,
         published: item.pubDate,
