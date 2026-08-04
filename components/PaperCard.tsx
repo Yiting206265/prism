@@ -45,11 +45,14 @@ interface Props {
   paper: Paper;
   index: number;
   variant?: Variant;
-  coverModel: string;
   onSummarized?: () => void;
 }
 
-export default function PaperCard({ paper, index, variant = 'grid', coverModel, onSummarized }: Props) {
+// Only used for the rare AI-generation fallback when a paper has no usable
+// arXiv figure — not user-facing, so no need for a model picker.
+const COVER_MODEL = 'flux-1-schnell';
+
+export default function PaperCard({ paper, index, variant = 'grid', onSummarized }: Props) {
   const [expanded, setExpanded] = useState(variant === 'featured');
   const [summary, setSummary]   = useState('');
   const [sumState, setSumState] = useState<SumState>('idle');
@@ -85,7 +88,7 @@ export default function PaperCard({ paper, index, variant = 'grid', coverModel, 
       const res = await fetch('/api/cover', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: paper.title, abstract: paper.abstract, model: coverModel, arxivId: paper.id }),
+        body: JSON.stringify({ title: paper.title, abstract: paper.abstract, model: COVER_MODEL, arxivId: paper.id }),
       });
       if (!res.ok) throw new Error(`${res.status}`);
       const blob = await res.blob();
