@@ -85,7 +85,7 @@ export default function PaperCard({ paper, index, variant = 'grid', coverModel, 
       const res = await fetch('/api/cover', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: paper.title, abstract: paper.abstract, model: coverModel }),
+        body: JSON.stringify({ title: paper.title, abstract: paper.abstract, model: coverModel, arxivId: paper.id }),
       });
       if (!res.ok) throw new Error(`${res.status}`);
       const blob = await res.blob();

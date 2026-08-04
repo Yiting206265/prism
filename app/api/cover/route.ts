@@ -44,11 +44,65 @@ export async function POST(request: NextRequest) {
       'dreamshaper-8-lcm':            '@cf/lykon/dreamshaper-8-lcm',
     };
 
-    const { title, abstract, model: modelKey = 'flux-1-schnell' } =
-      await request.json() as { title?: string; abstract?: string; model?: string };
+    const { title, abstract, model: modelKey = 'flux-1-schnell', arxivId } =
+      await request.json() as { title?: string; abstract?: string; model?: string; arxivId?: string };
 
     if (!title || !abstract) {
       return new Response('Missing title or abstract', { status: 400 });
+    }
+
+    // Prefer the paper's real Figure 1 from arXiv's auto-generated HTML
+    // rendering — faster (no generation), free (no quota), and actually
+    // accurate (it's the real figure, not an AI's guess). Cached separately
+    // from the AI path since it doesn't depend on the model selector.
+    if (arxivId) {
+      const figureCacheKey = getCacheKey(arxivId, 'figure');
+      const cachedFigure = readCache(figureCacheKey);
+      if (cachedFigure) {
+        return new Response(new Uint8Array(cachedFigure.buffer), {
+          headers: { 'Content-Type': cachedFigure.contentType, 'Cache-Control': 'public, max-age=86400', 'X-Cache': 'HIT' },
+        });
+      }
+
+      try {
+        const htmlRes = await fetch(`https://arxiv.org/html/${encodeURIComponent(arxivId)}`, {
+          signal: AbortSignal.timeout(8000),
+        });
+        if (htmlRes.ok) {
+          const html = await htmlRes.text();
+          const imgTags = html.match(/<img\b[^>]*>/g) ?? [];
+          let figureSrc: string | null = null;
+          for (const tag of imgTags) {
+            if (/\bltx_graphics\b/.test(tag)) {
+              const srcMatch = tag.match(/\ssrc="([^"]+)"/);
+              if (srcMatch) { figureSrc = srcMatch[1]; break; }
+            }
+          }
+
+          if (figureSrc) {
+            const figureUrl = /^https?:\/\//.test(figureSrc)
+              ? figureSrc
+              : `https://arxiv.org/html/${figureSrc}`;
+            const imgRes = await fetch(figureUrl, { signal: AbortSignal.timeout(10000) });
+            if (imgRes.ok) {
+              const contentType = imgRes.headers.get('content-type') ?? '';
+              if (contentType.startsWith('image/')) {
+                const figBuffer = Buffer.from(await imgRes.arrayBuffer());
+                // Skip tiny/broken images (e.g. inline math glyphs that
+                // slipped through the class filter) rather than caching junk.
+                if (figBuffer.length > 3000) {
+                  writeCache(figureCacheKey, figBuffer, contentType);
+                  return new Response(new Uint8Array(figBuffer), {
+                    headers: { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=86400', 'X-Cache': 'MISS' },
+                  });
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[cover] arXiv figure fetch error, falling back to AI generation:', e instanceof Error ? e.message : e);
+      }
     }
 
     const cfModel = ALLOWED_MODELS[modelKey] ?? ALLOWED_MODELS['flux-1-schnell'];
@@ -63,9 +117,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Step 1: Groq → evocative visual prompt. Any failure here (rate limit,
-    // outage) just falls back to the raw title instead of failing the whole
-    // request — image generation below still has its own SVG fallback too.
+    // Step 1: Groq → evocative visual prompt (used only for the AI-generation
+    // fallback below, when the paper has no usable arXiv HTML figure). Any
+    // failure here (rate limit, outage) just falls back to the raw title
+    // instead of failing the whole request.
     let visualPrompt = title;
     try {
       const promptRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -143,13 +198,20 @@ Output only the image generation prompt, as one clean paragraph.`,
     }
 
     // Fallback 1: Pollinations.ai — free Flux image generation, no API key
-    // required, no daily quota (just a soft per-request rate limit).
+    // required. Anonymous requests are heavily rate-limited (can stall for
+    // 30s+); a free registered token (POLLINATIONS_TOKEN, from
+    // enter.pollinations.ai) raises that limit substantially.
     if (!buffer) {
       try {
         const pollinationsUrl =
           `https://image.pollinations.ai/prompt/${encodeURIComponent(visualPrompt.slice(0, 500))}` +
           `?width=1024&height=768&model=flux&nologo=true&safe=true`;
-        const polRes = await fetch(pollinationsUrl, { signal: AbortSignal.timeout(30000) });
+        const polRes = await fetch(pollinationsUrl, {
+          headers: process.env.POLLINATIONS_TOKEN
+            ? { 'Authorization': `Bearer ${process.env.POLLINATIONS_TOKEN}` }
+            : {},
+          signal: AbortSignal.timeout(30000),
+        });
         if (polRes.ok) {
           buffer = Buffer.from(await polRes.arrayBuffer());
         } else {
