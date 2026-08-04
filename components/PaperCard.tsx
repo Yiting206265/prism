@@ -164,7 +164,7 @@ export default function PaperCard({ paper, index, variant = 'grid', coverModel, 
       <div className="paper-content">
         {/* Title */}
         <h2 className="paper-title">
-          <a href={paper.absUrl} target="_blank" rel="noopener noreferrer">
+          <a href={paper.absUrl} target="_blank" rel="noopener noreferrer" title={paper.title}>
             {paper.title}
           </a>
         </h2>
