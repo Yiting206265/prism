@@ -821,6 +821,43 @@ body {
   background-size: 300px 100%;
 }
 
+/* ── Fallback cover theme — pure black card, white text ──
+   Shown when real image generation isn't available (rate limit, no
+   backend configured). Deliberately inverted rather than a faint tint,
+   so it reads as an intentional state instead of a broken one. */
+.cover-fallback {
+  background: #000;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.cover-fallback:hover { border-color: rgba(255, 255, 255, 0.3); }
+
+.cover-fallback .paper-cover-img,
+.cover-fallback .paper-cover-placeholder {
+  opacity: 0.55;
+  filter: none;
+}
+
+.cover-fallback .paper-cover::after {
+  background: linear-gradient(180deg, #000 0%, transparent 32%, transparent 68%, #000 100%);
+}
+
+.cover-fallback .paper-title a { color: #fff; }
+.cover-fallback .paper-featured-label { color: var(--ai); }
+.cover-fallback .paper-authors { color: rgba(255, 255, 255, 0.75); }
+.cover-fallback .meta-sep { color: rgba(255, 255, 255, 0.4); }
+.cover-fallback .paper-cat-tag {
+  color: rgba(255, 255, 255, 0.6);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+.cover-fallback .paper-date { color: rgba(255, 255, 255, 0.5); }
+.cover-fallback .paper-abstract { color: rgba(255, 255, 255, 0.85); }
+.cover-fallback .summary-body { color: rgba(255, 255, 255, 0.85); }
+.cover-fallback .action-btn { color: rgba(255, 255, 255, 0.6); }
+.cover-fallback .action-btn:hover { color: #fff; }
+.cover-fallback .action-btn.ai-btn:hover,
+.cover-fallback .action-btn.ai-btn.summarized { color: var(--ai); }
+
 /* ── Skeleton ────────────────────────────── */
 .skeleton-list { display: flex; flex-direction: column; }
 

@@ -56,6 +56,7 @@ export default function PaperCard({ paper, index, variant = 'grid', coverModel, 
   const [summaryVisible, setSummaryVisible] = useState(true);
   const [coverUrl, setCoverUrl]     = useState('');
   const [coverState, setCoverState] = useState<CoverState>('idle');
+  const [isFallbackCover, setIsFallbackCover] = useState(false);
   const cardRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -89,6 +90,7 @@ export default function PaperCard({ paper, index, variant = 'grid', coverModel, 
       });
       if (!res.ok) throw new Error(`${res.status}`);
       const blob = await res.blob();
+      setIsFallbackCover(blob.type.includes('svg'));
       setCoverUrl(URL.createObjectURL(blob));
       setCoverState('done');
     } catch {
@@ -136,11 +138,12 @@ export default function PaperCard({ paper, index, variant = 'grid', coverModel, 
   }
 
   const isOpen = expanded || (summary.length > 0 && summaryVisible) || sumState === 'streaming';
+  const showFallbackTheme = coverState === 'done' && isFallbackCover;
 
   return (
     <article
       ref={cardRef}
-      className={`paper-card-${variant}${isOpen ? ' is-open' : ''}`}
+      className={`paper-card-${variant}${isOpen ? ' is-open' : ''}${showFallbackTheme ? ' cover-fallback' : ''}`}
       style={{ animationDelay: `${Math.min((index - 1) * 40, 400)}ms` }}
     >
       {variant === 'featured' && (
