@@ -106,7 +106,8 @@ Output only the image generation prompt, as one clean paragraph.`,
       console.warn('[cover] Groq error, using raw title as prompt:', e instanceof Error ? e.message : e);
     }
 
-    // Step 2: Generate image — Cloudflare Workers AI with Pollinations fallback
+    // Step 2: Generate image — Cloudflare Workers AI first (best quality/speed
+    // when quota is available), then Pollinations/HF/black cover in order.
     let buffer: Buffer | null = null;
 
     if (useCloudflare) {
@@ -141,7 +142,25 @@ Output only the image generation prompt, as one clean paragraph.`,
       }
     }
 
-    // Fallback 1: Hugging Face Inference API (FLUX.1-schnell)
+    // Fallback 1: Pollinations.ai — free Flux image generation, no API key
+    // required, no daily quota (just a soft per-request rate limit).
+    if (!buffer) {
+      try {
+        const pollinationsUrl =
+          `https://image.pollinations.ai/prompt/${encodeURIComponent(visualPrompt.slice(0, 500))}` +
+          `?width=1024&height=768&model=flux&nologo=true&safe=true`;
+        const polRes = await fetch(pollinationsUrl, { signal: AbortSignal.timeout(30000) });
+        if (polRes.ok) {
+          buffer = Buffer.from(await polRes.arrayBuffer());
+        } else {
+          console.warn('[cover] Pollinations unavailable:', polRes.status);
+        }
+      } catch (e) {
+        console.warn('[cover] Pollinations error:', e instanceof Error ? e.message : e);
+      }
+    }
+
+    // Fallback 2: Hugging Face Inference API (FLUX.1-schnell)
     if (!buffer && process.env.HF_TOKEN) {
       try {
         const hfRes = await fetch(
@@ -166,7 +185,7 @@ Output only the image generation prompt, as one clean paragraph.`,
       }
     }
 
-    // Fallback 2: plain black cover
+    // Fallback 3: plain black cover
     if (!buffer) {
       const svg = makeSvgCover();
       const svgBuffer = Buffer.from(svg);
