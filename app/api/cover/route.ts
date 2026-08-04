@@ -26,53 +26,12 @@ function writeCache(key: string, buffer: Buffer, contentType: string): void {
   writeFileSync(join(CACHE_DIR, `${key}.json`), JSON.stringify({ contentType }));
 }
 
-// Purely abstract — no baked-in text — since this now renders as a tinted
-// background behind the real title, not a standalone thumbnail. Solid black
-// rather than the old varied color palette, so it reads as an intentional
-// minimal state (matching the site's monochrome aesthetic) rather than a
-// broken/inconsistent one — this is shown often since image generation is
-// rate-limited.
-function makeSvgCover(title: string): string {
-  let h = 0;
-  for (let i = 0; i < title.length; i++) h = (Math.imul(31, h) + title.charCodeAt(i)) | 0;
-  h = Math.abs(h);
-
-  // Deterministic pseudo-random "nodes" scattered across the canvas, joined
-  // by thin connecting lines — reads as an abstract concept diagram.
-  const nodeCount = 6 + (h % 4);
-  const nodes = Array.from({ length: nodeCount }, (_, i) => {
-    const seed = (h >> (i * 3)) & 0xff;
-    const x = 60 + ((seed * 37 + i * 91) % 392);
-    const y = 60 + ((seed * 53 + i * 137) % 648);
-    const r = 3 + (seed % 5);
-    return { x, y, r };
-  });
-
-  // Shapes are drawn near-opaque — the CSS layer applies the actual tint
-  // uniformly (same as it does for real photos), so this needs to hold its
-  // own contrast against the background gradient before that dimming.
-  const lines = nodes
-    .map((n, i) => {
-      const next = nodes[(i + 1) % nodes.length];
-      return `<line x1="${n.x}" y1="${n.y}" x2="${next.x}" y2="${next.y}" stroke="white" stroke-width="1" opacity="0.55"/>`;
-    })
-    .join('\n  ');
-
-  const circles = nodes
-    .map((n) => `<circle cx="${n.x}" cy="${n.y}" r="${n.r}" fill="white" opacity="0.85"/>`)
-    .join('\n  ');
-
+// Plain solid black — used whenever real image generation isn't available
+// (rate limit, no backend configured). No pattern: the .cover-fallback CSS
+// theme (pure black card, white text) already signals this is deliberate.
+function makeSvgCover(): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="768" viewBox="0 0 512 768">
-  <defs>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="10" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-  </defs>
   <rect width="512" height="768" fill="#000000"/>
-  <circle cx="256" cy="384" r="220" fill="white" opacity="0.05" filter="url(#glow)"/>
-  ${lines}
-  ${circles}
 </svg>`;
 }
 
@@ -207,9 +166,9 @@ Output only the image generation prompt, as one clean paragraph.`,
       }
     }
 
-    // Fallback 2: styled SVG cover using the paper title
+    // Fallback 2: plain black cover
     if (!buffer) {
-      const svg = makeSvgCover(title);
+      const svg = makeSvgCover();
       const svgBuffer = Buffer.from(svg);
       writeCache(cacheKey, svgBuffer, 'image/svg+xml');
       return new Response(svgBuffer, {

@@ -56,7 +56,6 @@ export default function PaperCard({ paper, index, variant = 'grid', coverModel, 
   const [summaryVisible, setSummaryVisible] = useState(true);
   const [coverUrl, setCoverUrl]     = useState('');
   const [coverState, setCoverState] = useState<CoverState>('idle');
-  const [isFallbackCover, setIsFallbackCover] = useState(false);
   const cardRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -90,7 +89,6 @@ export default function PaperCard({ paper, index, variant = 'grid', coverModel, 
       });
       if (!res.ok) throw new Error(`${res.status}`);
       const blob = await res.blob();
-      setIsFallbackCover(blob.type.includes('svg'));
       setCoverUrl(URL.createObjectURL(blob));
       setCoverState('done');
     } catch {
@@ -137,21 +135,17 @@ export default function PaperCard({ paper, index, variant = 'grid', coverModel, 
     }
   }
 
-  const isOpen = expanded || (summary.length > 0 && summaryVisible) || sumState === 'streaming';
-  const showFallbackTheme = coverState === 'done' && isFallbackCover;
-
   return (
     <article
       ref={cardRef}
-      className={`paper-card-${variant}${isOpen ? ' is-open' : ''}${showFallbackTheme ? ' cover-fallback' : ''}`}
+      className={`paper-card-${variant}`}
       style={{ animationDelay: `${Math.min((index - 1) * 40, 400)}ms` }}
     >
-      {variant === 'featured' && (
-        <span className="paper-featured-label">Latest</span>
-      )}
-
-      {/* Cover — tinted background visualization */}
-      <div className="paper-cover" aria-hidden="true">
+      {/* Cover — full-bleed image header, separate from text below */}
+      <div className="paper-cover-frame" aria-hidden="true">
+        {variant === 'featured' && (
+          <span className="paper-featured-label">Latest</span>
+        )}
         {coverState === 'loading' && (
           <div className="paper-cover-placeholder skeleton-block" />
         )}
@@ -161,6 +155,9 @@ export default function PaperCard({ paper, index, variant = 'grid', coverModel, 
             alt=""
             className="paper-cover-img"
           />
+        )}
+        {(coverState === 'idle' || coverState === 'error') && (
+          <div className="paper-cover-placeholder" />
         )}
       </div>
 

@@ -538,19 +538,28 @@ body {
   position: relative;
   overflow: hidden;
   display: block;
-  padding: 2.5rem 2rem 3rem;
+  padding-bottom: 3rem;
   border-bottom: 1px solid var(--border);
   animation: fadeInUp 0.3s ease both;
 }
 
+.paper-card-featured .paper-content {
+  padding: 2rem 2rem 0;
+}
+
 .paper-featured-label {
+  position: absolute;
+  top: 1.25rem;
+  left: 1.25rem;
+  z-index: 1;
   display: inline-block;
   font-family: var(--mono);
   font-size: 0.62rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--ai);
-  margin-bottom: 0.9rem;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 0.3rem 0.65rem;
 }
 
 .paper-card-featured .paper-title {
@@ -580,23 +589,12 @@ body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  height: 330px;
   border: 1px solid var(--border);
-  padding: 1.5rem;
   animation: fadeInUp 0.3s ease both;
   transition: border-color 0.15s;
 }
 
 .paper-card-grid:hover { border-color: var(--border-strong); }
-
-/* Expanded abstract / AI summary needs more room than the uniform grid
-   height allows — let the card grow instead of clipping the content. */
-.paper-card-grid.is-open {
-  height: auto;
-  min-height: 330px;
-}
-
-.paper-card-grid.is-open .paper-content { height: auto; }
 
 .paper-card-grid .paper-title {
   font-size: 1.15rem;
@@ -610,12 +608,8 @@ body {
 .paper-card-grid .paper-summary { max-width: none; }
 
 .paper-card-grid .paper-content {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
+  padding: 1.25rem 1.5rem 1.5rem;
 }
-
-.paper-card-grid .paper-actions { margin-top: auto; padding-top: 1rem; }
 
 @media (max-width: 900px) {
   .papers-grid { grid-template-columns: repeat(2, 1fr); }
@@ -786,12 +780,19 @@ body {
 
 .action-btn.pdf-btn:hover { color: var(--text-primary); }
 
-/* ── Paper cover — tinted background visualization ── */
-.paper-cover {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
+/* ── Paper cover — full-bleed image header, separate from text ──
+   Text lives entirely below the image now, so there's no contrast
+   fight with whatever colors the generated art happens to have. */
+.paper-cover-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #000;
+}
+
+.paper-card-featured .paper-cover-frame {
+  aspect-ratio: 3 / 1;
 }
 
 .paper-cover-img,
@@ -801,62 +802,18 @@ body {
   display: block;
   object-fit: cover;
   object-position: center top;
-  opacity: 0.32;
-  filter: grayscale(0.2) contrast(1.05);
 }
 
-.paper-cover::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, var(--bg) 0%, transparent 32%, transparent 68%, var(--bg) 100%);
+.paper-cover-placeholder { background: #000; }
+
+.paper-cover-img {
+  transition: transform 0.4s ease;
 }
 
-.paper-card-featured .paper-cover-img,
-.paper-card-featured .paper-cover-placeholder {
-  opacity: 0.38;
+.paper-card-grid:hover .paper-cover-img,
+.paper-card-featured:hover .paper-cover-img {
+  transform: scale(1.04);
 }
-
-.paper-cover-placeholder {
-  background-size: 300px 100%;
-}
-
-/* ── Fallback cover theme — pure black card, white text ──
-   Shown when real image generation isn't available (rate limit, no
-   backend configured). Deliberately inverted rather than a faint tint,
-   so it reads as an intentional state instead of a broken one. */
-.cover-fallback {
-  background: #000;
-  border-color: rgba(255, 255, 255, 0.15);
-}
-
-.cover-fallback:hover { border-color: rgba(255, 255, 255, 0.3); }
-
-.cover-fallback .paper-cover-img,
-.cover-fallback .paper-cover-placeholder {
-  opacity: 0.55;
-  filter: none;
-}
-
-.cover-fallback .paper-cover::after {
-  background: linear-gradient(180deg, #000 0%, transparent 32%, transparent 68%, #000 100%);
-}
-
-.cover-fallback .paper-title a { color: #fff; }
-.cover-fallback .paper-featured-label { color: var(--ai); }
-.cover-fallback .paper-authors { color: rgba(255, 255, 255, 0.75); }
-.cover-fallback .meta-sep { color: rgba(255, 255, 255, 0.4); }
-.cover-fallback .paper-cat-tag {
-  color: rgba(255, 255, 255, 0.6);
-  border-color: rgba(255, 255, 255, 0.25);
-}
-.cover-fallback .paper-date { color: rgba(255, 255, 255, 0.5); }
-.cover-fallback .paper-abstract { color: rgba(255, 255, 255, 0.85); }
-.cover-fallback .summary-body { color: rgba(255, 255, 255, 0.85); }
-.cover-fallback .action-btn { color: rgba(255, 255, 255, 0.6); }
-.cover-fallback .action-btn:hover { color: #fff; }
-.cover-fallback .action-btn.ai-btn:hover,
-.cover-fallback .action-btn.ai-btn.summarized { color: var(--ai); }
 
 /* ── Skeleton ────────────────────────────── */
 .skeleton-list { display: flex; flex-direction: column; }
@@ -977,8 +934,9 @@ body {
 
 /* ── Mobile ──────────────────────────────── */
 @media (max-width: 640px) {
-  .paper-card-featured { padding: 1.75rem 1.25rem 2.25rem; }
-  .paper-card-grid { padding: 1.25rem; }
+  .paper-card-featured { padding-bottom: 2.25rem; }
+  .paper-card-featured .paper-content { padding: 1.5rem 1.25rem 0; }
+  .paper-card-grid .paper-content { padding: 1.1rem 1.25rem 1.25rem; }
 
   .papers-section {
     padding: 2rem 1rem 3rem;
