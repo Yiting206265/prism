@@ -787,6 +787,16 @@ body {
 
 .paper-cover-placeholder { background: #000; }
 
+.paper-cover-img-btn {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
+}
+
 .paper-cover-img {
   transition: transform 0.4s ease;
 }
@@ -794,6 +804,52 @@ body {
 .paper-card-grid:hover .paper-cover-img,
 .paper-card-featured:hover .paper-cover-img {
   transform: scale(1.04);
+}
+
+/* ── Lightbox ────────────────────────────── */
+.lightbox-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  cursor: zoom-out;
+  animation: fadeInUp 0.15s ease both;
+}
+
+.lightbox-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  cursor: default;
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.5);
+}
+
+.lightbox-close {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 101;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.lightbox-close:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+@media (max-width: 640px) {
+  .lightbox-backdrop { padding: 1.25rem; }
 }
 
 /* ── Skeleton ────────────────────────────── */

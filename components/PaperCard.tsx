@@ -46,13 +46,14 @@ interface Props {
   index: number;
   variant?: Variant;
   onSummarized?: () => void;
+  onImageClick?: (src: string) => void;
 }
 
 // Only used for the rare AI-generation fallback when a paper has no usable
 // arXiv figure — not user-facing, so no need for a model picker.
 const COVER_MODEL = 'flux-1-schnell';
 
-export default function PaperCard({ paper, index, variant = 'grid', onSummarized }: Props) {
+export default function PaperCard({ paper, index, variant = 'grid', onSummarized, onImageClick }: Props) {
   const [expanded, setExpanded] = useState(variant === 'featured');
   const [summary, setSummary]   = useState('');
   const [sumState, setSumState] = useState<SumState>('idle');
@@ -145,22 +146,29 @@ export default function PaperCard({ paper, index, variant = 'grid', onSummarized
       style={{ animationDelay: `${Math.min((index - 1) * 40, 400)}ms` }}
     >
       {/* Cover — full-bleed image header, separate from text below */}
-      <div className="paper-cover-frame" aria-hidden="true">
+      <div className="paper-cover-frame">
         {variant === 'featured' && (
           <span className="paper-featured-label">Latest</span>
         )}
-        {coverState === 'loading' && (
-          <div className="paper-cover-placeholder skeleton-block" />
+        {(coverState === 'idle' || coverState === 'loading') && (
+          <div className="paper-cover-placeholder skeleton-block" aria-hidden="true" />
         )}
         {coverState === 'done' && coverUrl && (
-          <img
-            src={coverUrl}
-            alt=""
-            className="paper-cover-img"
-          />
+          <button
+            type="button"
+            className="paper-cover-img-btn"
+            onClick={() => onImageClick?.(coverUrl)}
+            aria-label="View full-size figure"
+          >
+            <img
+              src={coverUrl}
+              alt=""
+              className="paper-cover-img"
+            />
+          </button>
         )}
-        {(coverState === 'idle' || coverState === 'error') && (
-          <div className="paper-cover-placeholder" />
+        {coverState === 'error' && (
+          <div className="paper-cover-placeholder" aria-hidden="true" />
         )}
       </div>
 

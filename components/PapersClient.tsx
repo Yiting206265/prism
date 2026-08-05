@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Hero from './Hero';
 import CategorySelector from './CategorySelector';
 import PaperCard, { type Paper } from './PaperCard';
+import Lightbox from './Lightbox';
 
 const CATEGORY_NAMES: Record<string, string> = {
   'cs.AI': 'Artificial Intelligence',
@@ -71,6 +72,7 @@ export default function PapersClient() {
   const [categoriesLive, setCategoriesLive] = useState(0);
   const [statsLoading, setStatsLoading] = useState(true);
   const [asOf, setAsOf] = useState<string | null>(null);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   const fetchPapers = useCallback(async (cat: string, start = 0, append = false) => {
     if (append) setIsLoadingMore(true);
@@ -217,6 +219,7 @@ export default function PapersClient() {
               paper={papers[0]}
               index={1}
               variant="featured"
+              onImageClick={setLightboxSrc}
             />
 
             <div className="papers-grid">
@@ -226,6 +229,7 @@ export default function PapersClient() {
                   paper={paper}
                   index={i + 2}
                   variant="grid"
+                  onImageClick={setLightboxSrc}
                 />
               ))}
             </div>
@@ -246,6 +250,10 @@ export default function PapersClient() {
           </div>
         )}
       </div>
+
+      {lightboxSrc && (
+        <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+      )}
     </>
   );
 }
