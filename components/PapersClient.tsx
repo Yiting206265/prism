@@ -87,6 +87,12 @@ export default function PapersClient() {
   const [asOf, setAsOf] = useState<string | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
+  // Counts for the currently-picked date, across all 24 categories — filled
+  // in one category at a time (see the effect below) since arXiv rate-limits
+  // to ~1 request/3s and firing all 24 in parallel gets every one a 429.
+  const [dateCounts, setDateCounts] = useState<Record<string, number>>({});
+  const [dateStatsLoading, setDateStatsLoading] = useState(false);
+
   const fetchPapers = useCallback(async (cat: string, start = 0, append = false, dateOverride: string | null = null) => {
     if (append) setIsLoadingMore(true);
     else {
@@ -109,10 +115,16 @@ export default function PapersClient() {
       setPapers((prev) => (append ? [...prev, ...newPapers] : newPapers));
       setTotal(data.total ?? 0);
       setOffset(start + newPapers.length);
-      // Keep hero/chip counts in sync with today's feed only — a date-scoped
-      // fetch must never overwrite the "new today" counts.
-      if (!dateOverride && typeof data.total === 'number') {
-        setCounts((prev) => ({ ...prev, [cat]: data.total }));
+      if (typeof data.total === 'number') {
+        if (dateOverride) {
+          // Reuse this total for the date-scoped chip sweep below — saves a
+          // redundant arXiv request for whichever category is selected.
+          setDateCounts((prev) => ({ ...prev, [cat]: data.total }));
+        } else {
+          // Keep hero/chip counts in sync with today's feed only — a
+          // date-scoped fetch must never overwrite the "new today" counts.
+          setCounts((prev) => ({ ...prev, [cat]: data.total }));
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load papers.');
@@ -152,6 +164,51 @@ export default function PapersClient() {
     fetchPapers(category, 0, false, date);
   }, [category, date, fetchPapers]);
 
+  useEffect(() => {
+    if (date === null) return;
+
+    let cancelled = false;
+    setDateCounts({});
+    setDateStatsLoading(true);
+
+    // arXiv rate-limits to ~1 request every 3s; firing all 24 categories at
+    // once gets every one a 429 (confirmed while building this). So these
+    // run one at a time, spaced out — a full sweep takes ~1.5-4+ minutes.
+    // Runs independently of category switches: changing category mid-sweep
+    // doesn't restart it, since fetchPapers fills in that one directly.
+    const REQUEST_SPACING_MS = 3500;
+    const allCategories = Object.keys(CATEGORY_NAMES);
+
+    (async () => {
+      for (const cat of allCategories) {
+        if (cancelled) return;
+
+        try {
+          const res = await fetch(
+            `/api/papers?category=${encodeURIComponent(cat)}&maxResults=1&start=0&date=${encodeURIComponent(date)}&noRetry=1`
+          );
+          if (res.ok) {
+            const data = await res.json();
+            if (!cancelled && typeof data.total === 'number') {
+              setDateCounts((prev) => ({ ...prev, [cat]: data.total }));
+            }
+          }
+        } catch {
+          // Leave this category unset on failure — its chip just stays "—".
+        }
+
+        if (!cancelled) {
+          await new Promise((resolve) => setTimeout(resolve, REQUEST_SPACING_MS));
+        }
+      }
+      if (!cancelled) setDateStatsLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [date]);
+
   const handleCategoryChange = (cat: string) => {
     if (cat === category) {
       setOffset(0);
@@ -167,19 +224,19 @@ export default function PapersClient() {
 
   const categoryLabel = CATEGORY_NAMES[category] ?? category;
   const newToday = counts[category] ?? total;
-  // When browsing a past date, the primary hero stat should reflect that
-  // date's results rather than today's — but "Categories live" stays
-  // pinned to today (see chip counts: re-scoping it to the picked date
-  // would mean 24 more arXiv queries per date change).
-  const heroStatValue = date ? total : newToday;
+  // When browsing a past date, every hero stat and chip count comes from the
+  // date-scoped stats fetch (all 24 categories) instead of today's RSS data.
+  const heroStatValue = date ? (dateCounts[category] ?? total) : newToday;
   const heroStatLabel = date ? 'Papers found' : 'New today';
-  const categoriesLiveLabel = date ? 'Live today' : 'Categories live';
-  // Only the selected chip's count is known for the picked date (it came
-  // back with the papers fetch, no extra request). The other 23 categories'
-  // today-counts would be misleading shown as this date's counts, so drop
-  // them entirely rather than imply "0 papers on this date" — the chip UI
-  // renders a neutral "—" for categories with no known count.
-  const displayCounts = date ? { [category]: total } : counts;
+  const displayCounts = date ? dateCounts : counts;
+  // Climbs progressively as the per-category sweep (above) fills in — an
+  // undercount until the sweep finishes, by design.
+  const displayCategoriesLive = date
+    ? Object.values(dateCounts).filter((c) => c > 0).length
+    : (categoriesLive || Object.keys(counts).length);
+  const displayStatsLoading = date
+    ? dateStatsLoading && Object.keys(dateCounts).length === 0
+    : statsLoading && !(category in counts) && total === 0;
 
   return (
     <>
@@ -189,9 +246,9 @@ export default function PapersClient() {
         newToday={heroStatValue}
         newTodayLabel={heroStatLabel}
         showing={papers.length}
-        categoriesLive={categoriesLive || Object.keys(counts).length}
-        categoriesLiveLabel={categoriesLiveLabel}
-        statsLoading={statsLoading && !(category in counts) && total === 0}
+        categoriesLive={displayCategoriesLive}
+        categoriesLiveLabel="Categories live"
+        statsLoading={displayStatsLoading}
         asOf={asOf}
       />
 
@@ -199,7 +256,7 @@ export default function PapersClient() {
         selected={category}
         onChange={handleCategoryChange}
         counts={displayCounts}
-        countsLoading={statsLoading}
+        countsLoading={date ? dateStatsLoading : statsLoading}
         date={date}
       />
 

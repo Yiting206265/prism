@@ -88,7 +88,6 @@ export default function CategorySelector({
             {group.categories.map((cat) => {
               const count = counts[cat.code];
               const hasCount = typeof count === 'number';
-              const isDateScoped = Boolean(date) && cat.code === selected;
               return (
                 <button
                   key={cat.code}
@@ -98,7 +97,7 @@ export default function CategorySelector({
                   onClick={() => onChange(cat.code)}
                   title={
                     hasCount
-                      ? isDateScoped
+                      ? date
                         ? `${cat.code} — ${count.toLocaleString()} papers on ${date}`
                         : `${cat.code} — ${count.toLocaleString()} new today`
                       : cat.code

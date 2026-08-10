@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { XMLParser } from 'fast-xml-parser';
 import { cleanLatexText } from '@/lib/cleanText';
+import { fetchArxivXml } from '@/lib/arxivFetch';
+import { isValidDate, MAX_DAYS_BACK } from '@/lib/dateRange';
 
 interface RssItem {
   title: string;
@@ -31,65 +33,14 @@ interface AtomEntry {
   category?: AtomCategory | AtomCategory[];
 }
 
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const MAX_DAYS_BACK = 90;
-
-function isValidDate(dateStr: string): boolean {
-  if (!DATE_RE.test(dateStr)) return false;
-
-  const picked = new Date(`${dateStr}T00:00:00Z`);
-  if (isNaN(picked.getTime())) return false;
-
-  const today = new Date();
-  const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
-  const earliest = new Date(todayUTC);
-  earliest.setUTCDate(earliest.getUTCDate() - MAX_DAYS_BACK);
-
-  return picked >= earliest && picked <= todayUTC;
-}
-
-async function fetchByDate(category: string, dateStr: string, start: number, maxResults: number) {
+async function fetchByDate(category: string, dateStr: string, start: number, maxResults: number, retries?: number) {
   const yyyymmdd = dateStr.replace(/-/g, '');
   const searchQuery = `cat:${category}+AND+submittedDate:[${yyyymmdd}0000+TO+${yyyymmdd}2359]`;
   const url =
     `https://export.arxiv.org/api/query?search_query=${searchQuery}` +
     `&sortBy=submittedDate&sortOrder=descending&start=${start}&max_results=${maxResults}`;
 
-  // arXiv's search API (unlike its RSS feed) is prone to transient 429/503s
-  // under normal load, so retry a couple of times with backoff before giving up.
-  const RETRY_DELAYS_MS = [1000, 3000];
-  let xml = '';
-  let lastError: Error | null = null;
-
-  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
-    try {
-      const response = await fetch(url, {
-        headers: { 'User-Agent': 'Prism/1.0 (Research Discovery App; https://github.com)' },
-        cache: 'no-store',
-        // arXiv's search endpoint has been observed taking 15-60s under load;
-        // bound each attempt so a stalled connection fails fast into a retry
-        // instead of hanging indefinitely.
-        signal: AbortSignal.timeout(25000),
-      });
-
-      if (!response.ok) {
-        throw new Error(`arXiv query API returned ${response.status}`);
-      }
-
-      xml = await response.text();
-      lastError = null;
-      break;
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-      if (attempt < RETRY_DELAYS_MS.length) {
-        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
-      }
-    }
-  }
-
-  if (lastError) {
-    throw lastError;
-  }
+  const xml = await fetchArxivXml(url, retries);
 
   const parser = new XMLParser({
     ignoreAttributes: false,
@@ -135,6 +86,10 @@ export async function GET(request: NextRequest) {
   const maxResults = Math.min(parseInt(searchParams.get('maxResults') || '20', 10), 50);
   const start = Math.max(parseInt(searchParams.get('start') || '0', 10), 0);
   const date = searchParams.get('date');
+  // Callers that space out many requests themselves (the per-category count
+  // sweep) opt out of in-request retries — see fetchArxivXml for why
+  // retrying here would undermine that external spacing.
+  const noRetry = searchParams.get('noRetry') === '1';
 
   if (!/^[a-zA-Z0-9.\-]+$/.test(category)) {
     return NextResponse.json({ error: 'Invalid category' }, { status: 400 });
@@ -149,7 +104,7 @@ export async function GET(request: NextRequest) {
 
   try {
     if (date !== null) {
-      const { papers, total } = await fetchByDate(category, date, start, maxResults);
+      const { papers, total } = await fetchByDate(category, date, start, maxResults, noRetry ? 0 : undefined);
       return NextResponse.json({ papers, total, category, date });
     }
 
