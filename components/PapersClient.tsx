@@ -167,15 +167,24 @@ export default function PapersClient() {
 
   const categoryLabel = CATEGORY_NAMES[category] ?? category;
   const newToday = counts[category] ?? total;
+  // When browsing a past date, the primary hero stat should reflect that
+  // date's results rather than today's — but "Categories live" stays
+  // pinned to today (see chip counts: re-scoping it to the picked date
+  // would mean 24 more arXiv queries per date change).
+  const heroStatValue = date ? total : newToday;
+  const heroStatLabel = date ? 'Papers found' : 'New today';
+  const categoriesLiveLabel = date ? 'Live today' : 'Categories live';
 
   return (
     <>
       <Hero
         categoryCode={category}
         categoryLabel={categoryLabel}
-        newToday={newToday}
+        newToday={heroStatValue}
+        newTodayLabel={heroStatLabel}
         showing={papers.length}
         categoriesLive={categoriesLive || Object.keys(counts).length}
+        categoriesLiveLabel={categoriesLiveLabel}
         statsLoading={statsLoading && !(category in counts) && total === 0}
         asOf={asOf}
       />

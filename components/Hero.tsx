@@ -55,8 +55,10 @@ interface Props {
   categoryCode: string;
   categoryLabel: string;
   newToday: number;
+  newTodayLabel: string;
   showing: number;
   categoriesLive: number;
+  categoriesLiveLabel: string;
   statsLoading: boolean;
   asOf?: string | null;
 }
@@ -75,8 +77,10 @@ export default function Hero({
   categoryCode,
   categoryLabel,
   newToday,
+  newTodayLabel,
   showing,
   categoriesLive,
+  categoriesLiveLabel,
   statsLoading,
   asOf,
 }: Props) {
@@ -116,13 +120,13 @@ export default function Hero({
           <div className="hero-banner-stats">
             <HeroStat
               value={newToday}
-              label="New today"
+              label={newTodayLabel}
               loading={statsLoading}
             />
             <HeroStat value={showing} label="Showing" />
             <HeroStat
               value={categoriesLive}
-              label="Categories live"
+              label={categoriesLiveLabel}
               loading={statsLoading}
             />
           </div>
