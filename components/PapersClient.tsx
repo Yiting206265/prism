@@ -33,6 +33,18 @@ const CATEGORY_NAMES: Record<string, string> = {
   'q-fin.RM': 'Risk Management',
 };
 
+const MAX_DAYS_BACK = 90;
+
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function minDateISO(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - MAX_DAYS_BACK);
+  return d.toISOString().slice(0, 10);
+}
+
 function SkeletonList() {
   return (
     <div className="skeleton-list">
@@ -67,6 +79,7 @@ export default function PapersClient() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError]           = useState<string | null>(null);
   const [offset, setOffset]         = useState(0);
+  const [date, setDate]             = useState<string | null>(null);
 
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [categoriesLive, setCategoriesLive] = useState(0);
@@ -74,7 +87,7 @@ export default function PapersClient() {
   const [asOf, setAsOf] = useState<string | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
-  const fetchPapers = useCallback(async (cat: string, start = 0, append = false) => {
+  const fetchPapers = useCallback(async (cat: string, start = 0, append = false, dateOverride: string | null = null) => {
     if (append) setIsLoadingMore(true);
     else {
       setIsLoading(true);
@@ -83,8 +96,9 @@ export default function PapersClient() {
     }
 
     try {
+      const dateParam = dateOverride ? `&date=${encodeURIComponent(dateOverride)}` : '';
       const res = await fetch(
-        `/api/papers?category=${encodeURIComponent(cat)}&maxResults=${PAGE_SIZE}&start=${start}`
+        `/api/papers?category=${encodeURIComponent(cat)}&maxResults=${PAGE_SIZE}&start=${start}${dateParam}`
       );
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -95,8 +109,9 @@ export default function PapersClient() {
       setPapers((prev) => (append ? [...prev, ...newPapers] : newPapers));
       setTotal(data.total ?? 0);
       setOffset(start + newPapers.length);
-      // Keep hero/chip counts in sync with the live papers feed for this category
-      if (typeof data.total === 'number') {
+      // Keep hero/chip counts in sync with today's feed only — a date-scoped
+      // fetch must never overwrite the "new today" counts.
+      if (!dateOverride && typeof data.total === 'number') {
         setCounts((prev) => ({ ...prev, [cat]: data.total }));
       }
     } catch (err) {
@@ -134,20 +149,20 @@ export default function PapersClient() {
 
   useEffect(() => {
     setOffset(0);
-    fetchPapers(category, 0, false);
-  }, [category, fetchPapers]);
+    fetchPapers(category, 0, false, date);
+  }, [category, date, fetchPapers]);
 
   const handleCategoryChange = (cat: string) => {
     if (cat === category) {
       setOffset(0);
-      fetchPapers(cat, 0, false);
+      fetchPapers(cat, 0, false, date);
     } else {
       setCategory(cat);
     }
   };
 
   const handleLoadMore = () => {
-    fetchPapers(category, offset, true);
+    fetchPapers(category, offset, true, date);
   };
 
   const categoryLabel = CATEGORY_NAMES[category] ?? category;
@@ -178,15 +193,31 @@ export default function PapersClient() {
             <span className="papers-category-name">{categoryLabel}</span>
             {!isLoading && papers.length > 0 && (
               <span className="papers-count-badge">
-                {papers.length} of {total.toLocaleString()} new today
+                {date
+                  ? `${papers.length} of ${total.toLocaleString()} papers on ${date}`
+                  : `${papers.length} of ${total.toLocaleString()} new today`}
               </span>
             )}
           </div>
 
           <div className="papers-header-actions">
+            <input
+              type="date"
+              className="date-picker"
+              value={date ?? ''}
+              min={minDateISO()}
+              max={todayISO()}
+              onChange={(e) => setDate(e.target.value || null)}
+              aria-label="Browse papers from a specific date"
+            />
+            {date && (
+              <button className="date-clear-btn" onClick={() => setDate(null)}>
+                Today
+              </button>
+            )}
             <button
               className="refresh-btn"
-              onClick={() => fetchPapers(category)}
+              onClick={() => fetchPapers(category, 0, false, date)}
               disabled={isLoading}
             >
               <span className={`refresh-icon${isLoading ? ' spinning' : ''}`}>↻</span>
@@ -200,7 +231,7 @@ export default function PapersClient() {
         {!isLoading && error && (
           <div className="error-state">
             <p className="error-text">{error}</p>
-            <button className="retry-btn" onClick={() => fetchPapers(category)}>
+            <button className="retry-btn" onClick={() => fetchPapers(category, 0, false, date)}>
               Try Again
             </button>
           </div>
@@ -208,7 +239,9 @@ export default function PapersClient() {
 
         {!isLoading && !error && papers.length === 0 && (
           <div className="empty-state">
-            <p className="empty-label">No papers found for this category.</p>
+            <p className="empty-label">
+              {date ? 'No papers found for this date.' : 'No papers found for this category.'}
+            </p>
           </div>
         )}
 

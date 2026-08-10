@@ -514,6 +514,35 @@ body {
 .refresh-icon { display: inline-block; }
 .refresh-icon.spinning { animation: spin 0.8s linear infinite; }
 
+.date-picker {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.date-picker:hover { border-color: var(--border-strong); color: var(--text-primary); }
+
+.date-clear-btn {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.date-clear-btn:hover { border-color: var(--border-strong); color: var(--text-primary); }
+
 /* ── Paper card: featured ────────────────── */
 .paper-card-featured {
   position: relative;
