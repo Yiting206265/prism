@@ -174,6 +174,9 @@ export default function PapersClient() {
   const heroStatValue = date ? total : newToday;
   const heroStatLabel = date ? 'Papers found' : 'New today';
   const categoriesLiveLabel = date ? 'Live today' : 'Categories live';
+  // Only the selected chip can reflect the picked date without extra
+  // requests, since its total already came back with the papers fetch.
+  const displayCounts = date ? { ...counts, [category]: total } : counts;
 
   return (
     <>
@@ -192,8 +195,9 @@ export default function PapersClient() {
       <CategorySelector
         selected={category}
         onChange={handleCategoryChange}
-        counts={counts}
+        counts={displayCounts}
         countsLoading={statsLoading}
+        date={date}
       />
 
       <div className="papers-section">
