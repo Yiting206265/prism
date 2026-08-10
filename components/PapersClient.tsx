@@ -174,9 +174,12 @@ export default function PapersClient() {
   const heroStatValue = date ? total : newToday;
   const heroStatLabel = date ? 'Papers found' : 'New today';
   const categoriesLiveLabel = date ? 'Live today' : 'Categories live';
-  // Only the selected chip can reflect the picked date without extra
-  // requests, since its total already came back with the papers fetch.
-  const displayCounts = date ? { ...counts, [category]: total } : counts;
+  // Only the selected chip's count is known for the picked date (it came
+  // back with the papers fetch, no extra request). The other 23 categories'
+  // today-counts would be misleading shown as this date's counts, so drop
+  // them entirely rather than imply "0 papers on this date" — the chip UI
+  // renders a neutral "—" for categories with no known count.
+  const displayCounts = date ? { [category]: total } : counts;
 
   return (
     <>
