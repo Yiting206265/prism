@@ -55,16 +55,41 @@ async function fetchByDate(category: string, dateStr: string, start: number, max
     `https://export.arxiv.org/api/query?search_query=${searchQuery}` +
     `&sortBy=submittedDate&sortOrder=descending&start=${start}&max_results=${maxResults}`;
 
-  const response = await fetch(url, {
-    headers: { 'User-Agent': 'Prism/1.0 (Research Discovery App; https://github.com)' },
-    cache: 'no-store',
-  });
+  // arXiv's search API (unlike its RSS feed) is prone to transient 429/503s
+  // under normal load, so retry a couple of times with backoff before giving up.
+  const RETRY_DELAYS_MS = [1000, 3000];
+  let xml = '';
+  let lastError: Error | null = null;
 
-  if (!response.ok) {
-    throw new Error(`arXiv query API returned ${response.status}`);
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      const response = await fetch(url, {
+        headers: { 'User-Agent': 'Prism/1.0 (Research Discovery App; https://github.com)' },
+        cache: 'no-store',
+        // arXiv's search endpoint has been observed taking 15-60s under load;
+        // bound each attempt so a stalled connection fails fast into a retry
+        // instead of hanging indefinitely.
+        signal: AbortSignal.timeout(25000),
+      });
+
+      if (!response.ok) {
+        throw new Error(`arXiv query API returned ${response.status}`);
+      }
+
+      xml = await response.text();
+      lastError = null;
+      break;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (attempt < RETRY_DELAYS_MS.length) {
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
+      }
+    }
   }
 
-  const xml = await response.text();
+  if (lastError) {
+    throw lastError;
+  }
 
   const parser = new XMLParser({
     ignoreAttributes: false,
