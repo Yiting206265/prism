@@ -13,17 +13,121 @@ interface RssItem {
   category: string | string[];
 }
 
+interface AtomAuthor {
+  name: string;
+}
+
+interface AtomCategory {
+  '@_term': string;
+}
+
+interface AtomEntry {
+  id: string;
+  title: string;
+  summary: string;
+  published: string;
+  updated: string;
+  author?: AtomAuthor | AtomAuthor[];
+  category?: AtomCategory | AtomCategory[];
+}
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const MAX_DAYS_BACK = 90;
+
+function isValidDate(dateStr: string): boolean {
+  if (!DATE_RE.test(dateStr)) return false;
+
+  const picked = new Date(`${dateStr}T00:00:00Z`);
+  if (isNaN(picked.getTime())) return false;
+
+  const today = new Date();
+  const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+  const earliest = new Date(todayUTC);
+  earliest.setUTCDate(earliest.getUTCDate() - MAX_DAYS_BACK);
+
+  return picked >= earliest && picked <= todayUTC;
+}
+
+async function fetchByDate(category: string, dateStr: string, start: number, maxResults: number) {
+  const yyyymmdd = dateStr.replace(/-/g, '');
+  const searchQuery = `cat:${category}+AND+submittedDate:[${yyyymmdd}0000+TO+${yyyymmdd}2359]`;
+  const url =
+    `https://export.arxiv.org/api/query?search_query=${searchQuery}` +
+    `&sortBy=submittedDate&sortOrder=descending&start=${start}&max_results=${maxResults}`;
+
+  const response = await fetch(url, {
+    headers: { 'User-Agent': 'Prism/1.0 (Research Discovery App; https://github.com)' },
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error(`arXiv query API returned ${response.status}`);
+  }
+
+  const xml = await response.text();
+
+  const parser = new XMLParser({
+    ignoreAttributes: false,
+    attributeNamePrefix: '@_',
+    isArray: (name) => ['entry', 'author', 'category'].includes(name),
+  });
+
+  const result = parser.parse(xml);
+  const entries: AtomEntry[] = result?.feed?.entry ?? [];
+  const total = parseInt(result?.feed?.['opensearch:totalResults'] ?? '0', 10) || 0;
+
+  const papers = entries.map((entry, index) => {
+    const arxivId = entry.id.replace('http://arxiv.org/abs/', '').replace('https://arxiv.org/abs/', '');
+
+    const authors = (Array.isArray(entry.author) ? entry.author : entry.author ? [entry.author] : [])
+      .map((a) => cleanLatexText(a.name))
+      .filter(Boolean);
+
+    const categories = (Array.isArray(entry.category) ? entry.category : entry.category ? [entry.category] : [])
+      .map((c) => c['@_term'])
+      .filter(Boolean);
+
+    return {
+      id: arxivId || `paper-${index}`,
+      index: start + index + 1,
+      title: cleanLatexText(entry.title || ''),
+      authors,
+      abstract: cleanLatexText(entry.summary || ''),
+      published: entry.published,
+      updated: entry.updated,
+      categories,
+      pdfUrl: `https://arxiv.org/pdf/${arxivId}`,
+      absUrl: `https://arxiv.org/abs/${arxivId}`,
+    };
+  });
+
+  return { papers, total };
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const category = searchParams.get('category') || 'cs.AI';
   const maxResults = Math.min(parseInt(searchParams.get('maxResults') || '20', 10), 50);
   const start = Math.max(parseInt(searchParams.get('start') || '0', 10), 0);
+  const date = searchParams.get('date');
 
   if (!/^[a-zA-Z0-9.\-]+$/.test(category)) {
     return NextResponse.json({ error: 'Invalid category' }, { status: 400 });
   }
 
+  if (date !== null && !isValidDate(date)) {
+    return NextResponse.json(
+      { error: `Invalid date. Must be YYYY-MM-DD within the last ${MAX_DAYS_BACK} days.` },
+      { status: 400 }
+    );
+  }
+
   try {
+    if (date !== null) {
+      const { papers, total } = await fetchByDate(category, date, start, maxResults);
+      return NextResponse.json({ papers, total, category, date });
+    }
+
     const url = `https://rss.arxiv.org/rss/${category}`;
 
     const response = await fetch(url, {
