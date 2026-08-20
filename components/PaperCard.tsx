@@ -2,18 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 
-export interface Paper {
-  id: string;
-  index: number;
-  title: string;
-  authors: string[];
-  abstract: string;
-  published: string;
-  updated: string;
-  categories: string[];
-  pdfUrl: string;
-  absUrl: string;
-}
+import type { Paper } from '@/lib/providers/types';
+export type { Paper };
 
 function formatDate(dateStr: string): string {
   if (!dateStr) return '';
@@ -89,7 +79,12 @@ export default function PaperCard({ paper, index, variant = 'grid', onSummarized
       const res = await fetch('/api/cover', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: paper.title, abstract: paper.abstract, model: COVER_MODEL, arxivId: paper.id }),
+        body: JSON.stringify({
+          title: paper.title,
+          abstract: paper.abstract,
+          model: COVER_MODEL,
+          arxivId: paper.source === 'arxiv' ? paper.id : undefined,
+        }),
       });
       if (!res.ok) throw new Error(`${res.status}`);
       const blob = await res.blob();
@@ -247,23 +242,36 @@ export default function PaperCard({ paper, index, variant = 'grid', onSummarized
             : '✦ Summarize'}
         </button>
 
-        <a
-          href={paper.pdfUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="action-btn pdf-btn"
-        >
-          PDF ↗
-        </a>
-
+        {paper.source === 'pubmed' ? (
           <a
             href={paper.absUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="action-btn"
+            className="action-btn pdf-btn"
           >
-            arXiv ↗
+            View on PubMed ↗
           </a>
+        ) : (
+          <>
+            <a
+              href={paper.pdfUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="action-btn pdf-btn"
+            >
+              PDF ↗
+            </a>
+
+            <a
+              href={paper.absUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="action-btn"
+            >
+              arXiv ↗
+            </a>
+          </>
+        )}
         </div>
       </div>{/* end paper-content */}
     </article>
