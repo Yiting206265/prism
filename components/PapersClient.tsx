@@ -5,7 +5,7 @@ import Hero from './Hero';
 import CategorySelector from './CategorySelector';
 import PaperCard, { type Paper } from './PaperCard';
 import Lightbox from './Lightbox';
-import { categoryLabels } from '@/lib/categories';
+import { categoryLabels, CATEGORIES, SWEEP_SPACING_MS } from '@/lib/categories';
 
 const CATEGORY_NAMES: Record<string, string> = categoryLabels();
 
@@ -147,16 +147,19 @@ export default function PapersClient() {
     setDateCounts({});
     setDateStatsLoading(true);
 
-    // arXiv rate-limits to ~1 request every 3s; firing all 24 categories at
-    // once gets every one a 429 (confirmed while building this). So these
-    // run one at a time, spaced out — a full sweep takes ~1.5-4+ minutes.
+    // Each provider has its own rate limit (arXiv ~1 req/3s, PubMed ~3
+    // req/sec) — see SWEEP_SPACING_MS. One sweep loop per provider, run
+    // concurrently, so a slow arXiv sweep doesn't hold up the medical one.
     // Runs independently of category switches: changing category mid-sweep
     // doesn't restart it, since fetchPapers fills in that one directly.
-    const REQUEST_SPACING_MS = 3500;
-    const allCategories = Object.keys(CATEGORY_NAMES);
+    const byProvider = new Map<string, string[]>();
+    for (const cat of CATEGORIES) {
+      if (!byProvider.has(cat.provider)) byProvider.set(cat.provider, []);
+      byProvider.get(cat.provider)!.push(cat.id);
+    }
 
-    (async () => {
-      for (const cat of allCategories) {
+    const sweepOne = async (cats: string[], spacingMs: number) => {
+      for (const cat of cats) {
         if (cancelled) return;
 
         try {
@@ -174,9 +177,17 @@ export default function PapersClient() {
         }
 
         if (!cancelled) {
-          await new Promise((resolve) => setTimeout(resolve, REQUEST_SPACING_MS));
+          await new Promise((resolve) => setTimeout(resolve, spacingMs));
         }
       }
+    };
+
+    (async () => {
+      await Promise.all(
+        Array.from(byProvider.entries()).map(([provider, cats]) =>
+          sweepOne(cats, SWEEP_SPACING_MS[provider as keyof typeof SWEEP_SPACING_MS])
+        )
+      );
       if (!cancelled) setDateStatsLoading(false);
     })();
 
