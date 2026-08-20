@@ -84,6 +84,7 @@ export default function PaperCard({ paper, index, variant = 'grid', onSummarized
           abstract: paper.abstract,
           model: COVER_MODEL,
           arxivId: paper.source === 'arxiv' ? paper.id : undefined,
+          pmid: paper.source === 'pubmed' ? paper.id : undefined,
         }),
       });
       if (!res.ok) throw new Error(`${res.status}`);

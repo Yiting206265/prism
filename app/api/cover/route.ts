@@ -44,8 +44,8 @@ export async function POST(request: NextRequest) {
       'dreamshaper-8-lcm':            '@cf/lykon/dreamshaper-8-lcm',
     };
 
-    const { title, abstract, model: modelKey = 'flux-1-schnell', arxivId } =
-      await request.json() as { title?: string; abstract?: string; model?: string; arxivId?: string };
+    const { title, abstract, model: modelKey = 'flux-1-schnell', arxivId, pmid } =
+      await request.json() as { title?: string; abstract?: string; model?: string; arxivId?: string; pmid?: string };
 
     if (!title || !abstract) {
       return new Response('Missing title or abstract', { status: 400 });
@@ -105,6 +105,66 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Same idea for PubMed papers: if the paper is open-access in PubMed
+    // Central, use its real figure instead of AI-generated art. Most PubMed
+    // papers are NOT in PMC, so this commonly falls through to AI generation
+    // below — that's expected, not an error.
+    if (pmid) {
+      const pmcFigureCacheKey = getCacheKey(pmid, 'pmc-figure');
+      const cachedPmcFigure = readCache(pmcFigureCacheKey);
+      if (cachedPmcFigure) {
+        return new Response(new Uint8Array(cachedPmcFigure.buffer), {
+          headers: { 'Content-Type': cachedPmcFigure.contentType, 'Cache-Control': 'public, max-age=86400', 'X-Cache': 'HIT' },
+        });
+      }
+
+      try {
+        const idConvRes = await fetch(
+          `https://pmc.ncbi.nlm.nih.gov/tools/idconv/api/v1/articles/?ids=${encodeURIComponent(pmid)}&format=json`,
+          { signal: AbortSignal.timeout(6000) }
+        );
+        if (idConvRes.ok) {
+          const idConvData = await idConvRes.json();
+          const pmcid = idConvData?.records?.[0]?.pmcid as string | undefined;
+
+          if (pmcid) {
+            const pageRes = await fetch(`https://pmc.ncbi.nlm.nih.gov/articles/${pmcid}/`, {
+              signal: AbortSignal.timeout(8000),
+            });
+            if (pageRes.ok) {
+              const html = await pageRes.text();
+              const imgTags = html.match(/<img\b[^>]*>/g) ?? [];
+              let figureSrc: string | null = null;
+              for (const tag of imgTags) {
+                if (/\bgraphic\b/.test(tag)) {
+                  const srcMatch = tag.match(/\ssrc="([^"]+)"/);
+                  if (srcMatch) { figureSrc = srcMatch[1]; break; }
+                }
+              }
+
+              if (figureSrc) {
+                const imgRes = await fetch(figureSrc, { signal: AbortSignal.timeout(10000) });
+                if (imgRes.ok) {
+                  const contentType = imgRes.headers.get('content-type') ?? '';
+                  if (contentType.startsWith('image/')) {
+                    const figBuffer = Buffer.from(await imgRes.arrayBuffer());
+                    if (figBuffer.length > 3000) {
+                      writeCache(pmcFigureCacheKey, figBuffer, contentType);
+                      return new Response(new Uint8Array(figBuffer), {
+                        headers: { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=86400', 'X-Cache': 'MISS' },
+                      });
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[cover] PMC figure fetch error, falling back to AI generation:', e instanceof Error ? e.message : e);
+      }
+    }
+
     const cfModel = ALLOWED_MODELS[modelKey] ?? ALLOWED_MODELS['flux-1-schnell'];
     const useCloudflare = !!process.env.CF_ACCOUNT_ID && !!process.env.CF_API_TOKEN;
 
@@ -130,7 +190,8 @@ export async function POST(request: NextRequest) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'llama-3.1-8b-instant',
+          model: 'openai/gpt-oss-20b',
+          reasoning_effort: 'low',
           max_tokens: 200,
           messages: [{
             role: 'user',
