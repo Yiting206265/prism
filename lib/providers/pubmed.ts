@@ -10,7 +10,11 @@ const RETRY_DELAYS_MS = [1000, 3000];
 const ATTEMPT_TIMEOUT_MS = 25000;
 const EUTILS_BASE = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
 
-async function fetchEutils(url: string, retries: number = RETRY_DELAYS_MS.length): Promise<string> {
+async function fetchEutils(
+  url: string,
+  retries: number = RETRY_DELAYS_MS.length,
+  cacheOptions: RequestInit = { cache: 'no-store' }
+): Promise<string> {
   const delays = RETRY_DELAYS_MS.slice(0, retries);
   let lastError: Error | null = null;
 
@@ -18,8 +22,8 @@ async function fetchEutils(url: string, retries: number = RETRY_DELAYS_MS.length
     try {
       const response = await fetch(url, {
         headers: { 'User-Agent': 'Prism/1.0 (Research Discovery App; https://github.com)' },
-        cache: 'no-store',
         signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
+        ...cacheOptions,
       });
       if (!response.ok) {
         throw new Error(`PubMed E-utilities returned ${response.status}`);
@@ -71,14 +75,21 @@ function textOf(value: string | { '#text': string | number } | number | undefine
   return String(value['#text'] ?? '');
 }
 
-async function search(query: string, dateStr: string, start: number, maxResults: number, retries?: number) {
+async function search(
+  query: string,
+  dateStr: string,
+  start: number,
+  maxResults: number,
+  retries?: number,
+  cacheOptions?: RequestInit
+) {
   const slash = toSlashDate(dateStr);
   const url =
     `${EUTILS_BASE}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}` +
     `&datetype=pdat&mindate=${slash}&maxdate=${slash}&sort=pub_date` +
     `&retstart=${start}&retmax=${maxResults}&retmode=json`;
 
-  const body = await fetchEutils(url, retries);
+  const body = await fetchEutils(url, retries, cacheOptions);
   const parsed: EsearchResponse = JSON.parse(body);
   const total = parseInt(parsed.esearchresult?.count ?? '0', 10) || 0;
   const idlist = parsed.esearchresult?.idlist ?? [];
@@ -168,7 +179,7 @@ async function fetchCount(category: string): Promise<number> {
   const query = getCategory(category)?.query;
   if (!query) return 0;
   try {
-    const { total } = await search(query, todayISO(), 0, 0);
+    const { total } = await search(query, todayISO(), 0, 0, undefined, { next: { revalidate: 300 } });
     return total;
   } catch {
     return 0;
