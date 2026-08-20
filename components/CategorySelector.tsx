@@ -1,66 +1,6 @@
 'use client';
 
-interface Category {
-  code: string;
-  label: string;
-}
-
-interface CategoryGroup {
-  label: string;
-  categories: Category[];
-}
-
-const GROUPS: CategoryGroup[] = [
-  {
-    label: 'AI & ML',
-    categories: [
-      { code: 'cs.AI', label: 'cs.AI' },
-      { code: 'cs.LG', label: 'cs.LG' },
-      { code: 'cs.CV', label: 'cs.CV' },
-      { code: 'cs.CL', label: 'cs.CL' },
-      { code: 'cs.RO', label: 'cs.RO' },
-      { code: 'cs.NE', label: 'cs.NE' },
-      { code: 'cs.IR', label: 'cs.IR' },
-      { code: 'stat.ML', label: 'stat.ML' },
-    ],
-  },
-  {
-    label: 'Physics',
-    categories: [
-      { code: 'quant-ph', label: 'quant-ph' },
-      { code: 'cond-mat.mes-hall', label: 'cond-mat' },
-      { code: 'hep-th', label: 'hep-th' },
-      { code: 'astro-ph.GA', label: 'astro-ph' },
-      { code: 'physics.optics', label: 'optics' },
-    ],
-  },
-  {
-    label: 'Biology',
-    categories: [
-      { code: 'q-bio.NC', label: 'q-bio.NC' },
-      { code: 'q-bio.GN', label: 'q-bio.GN' },
-      { code: 'q-bio.BM', label: 'q-bio.BM' },
-      { code: 'q-bio.QM', label: 'q-bio.QM' },
-    ],
-  },
-  {
-    label: 'Math',
-    categories: [
-      { code: 'math.ST', label: 'math.ST' },
-      { code: 'math.OC', label: 'math.OC' },
-      { code: 'math.CO', label: 'math.CO' },
-      { code: 'math.PR', label: 'math.PR' },
-    ],
-  },
-  {
-    label: 'Finance',
-    categories: [
-      { code: 'q-fin.TR', label: 'q-fin.TR' },
-      { code: 'q-fin.PM', label: 'q-fin.PM' },
-      { code: 'q-fin.RM', label: 'q-fin.RM' },
-    ],
-  },
-];
+import { categoryGroups } from '@/lib/categories';
 
 interface Props {
   selected: string;
@@ -69,6 +9,8 @@ interface Props {
   countsLoading?: boolean;
   date?: string | null;
 }
+
+const GROUPS = categoryGroups();
 
 export default function CategorySelector({
   selected,
@@ -86,21 +28,21 @@ export default function CategorySelector({
               {group.label}
             </span>
             {group.categories.map((cat) => {
-              const count = counts[cat.code];
+              const count = counts[cat.id];
               const hasCount = typeof count === 'number';
               return (
                 <button
-                  key={cat.code}
+                  key={cat.id}
                   role="tab"
-                  aria-selected={selected === cat.code}
-                  className={`cat-btn${selected === cat.code ? ' active' : ''}`}
-                  onClick={() => onChange(cat.code)}
+                  aria-selected={selected === cat.id}
+                  className={`cat-btn${selected === cat.id ? ' active' : ''}`}
+                  onClick={() => onChange(cat.id)}
                   title={
                     hasCount
                       ? date
-                        ? `${cat.code} — ${count.toLocaleString()} papers on ${date}`
-                        : `${cat.code} — ${count.toLocaleString()} new today`
-                      : cat.code
+                        ? `${cat.label} — ${count.toLocaleString()} papers on ${date}`
+                        : `${cat.label} — ${count.toLocaleString()} new today`
+                      : cat.label
                   }
                 >
                   <span className="cat-btn-code">{cat.label}</span>

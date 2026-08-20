@@ -5,33 +5,9 @@ import Hero from './Hero';
 import CategorySelector from './CategorySelector';
 import PaperCard, { type Paper } from './PaperCard';
 import Lightbox from './Lightbox';
+import { categoryLabels } from '@/lib/categories';
 
-const CATEGORY_NAMES: Record<string, string> = {
-  'cs.AI': 'Artificial Intelligence',
-  'cs.LG': 'Machine Learning',
-  'cs.CV': 'Computer Vision',
-  'cs.CL': 'Computation & Language',
-  'cs.RO': 'Robotics',
-  'cs.NE': 'Neural & Evolutionary Computing',
-  'cs.IR': 'Information Retrieval',
-  'stat.ML': 'Statistics — Machine Learning',
-  'quant-ph': 'Quantum Physics',
-  'cond-mat.mes-hall': 'Condensed Matter',
-  'hep-th': 'High Energy Theory',
-  'astro-ph.GA': 'Astrophysics',
-  'physics.optics': 'Optics',
-  'q-bio.NC': 'Neurons & Cognition',
-  'q-bio.GN': 'Genomics',
-  'q-bio.BM': 'Biomolecules',
-  'q-bio.QM': 'Quantitative Methods',
-  'math.ST': 'Statistics Theory',
-  'math.OC': 'Optimization & Control',
-  'math.CO': 'Combinatorics',
-  'math.PR': 'Probability',
-  'q-fin.TR': 'Trading & Microstructure',
-  'q-fin.PM': 'Portfolio Management',
-  'q-fin.RM': 'Risk Management',
-};
+const CATEGORY_NAMES: Record<string, string> = categoryLabels();
 
 const MAX_DAYS_BACK = 90;
 
