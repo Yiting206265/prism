@@ -54,6 +54,7 @@ function HeroStat({
 interface Props {
   categoryCode: string;
   categoryLabel: string;
+  sourceLabel: string;
   newToday: number;
   newTodayLabel: string;
   showing: number;
@@ -76,6 +77,7 @@ function formatToday(asOf?: string | null) {
 export default function Hero({
   categoryCode,
   categoryLabel,
+  sourceLabel,
   newToday,
   newTodayLabel,
   showing,
@@ -101,7 +103,7 @@ export default function Hero({
       <div className="hero-banner-inner">
         <div className="hero-banner-panel">
           <div className="hero-banner-overline">
-            <span>Today&apos;s arXiv</span>
+            <span>Today&apos;s {sourceLabel}</span>
             <span className="hero-banner-dot" aria-hidden="true" />
             <span>{formatToday(asOf)}</span>
             <span className="hero-banner-dot" aria-hidden="true" />

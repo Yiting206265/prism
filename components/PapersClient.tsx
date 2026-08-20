@@ -5,7 +5,7 @@ import Hero from './Hero';
 import CategorySelector from './CategorySelector';
 import PaperCard, { type Paper } from './PaperCard';
 import Lightbox from './Lightbox';
-import { categoryLabels, CATEGORIES, SWEEP_SPACING_MS } from '@/lib/categories';
+import { categoryLabels, CATEGORIES, SWEEP_SPACING_MS, getCategory } from '@/lib/categories';
 
 const CATEGORY_NAMES: Record<string, string> = categoryLabels();
 
@@ -210,6 +210,7 @@ export default function PapersClient() {
   };
 
   const categoryLabel = CATEGORY_NAMES[category] ?? category;
+  const sourceLabel = getCategory(category)?.provider === 'pubmed' ? 'PubMed' : 'arXiv';
   const newToday = counts[category] ?? total;
   // When browsing a past date, every hero stat and chip count comes from the
   // date-scoped stats fetch (all 24 categories) instead of today's RSS data.
@@ -230,6 +231,7 @@ export default function PapersClient() {
       <Hero
         categoryCode={category}
         categoryLabel={categoryLabel}
+        sourceLabel={sourceLabel}
         newToday={heroStatValue}
         newTodayLabel={heroStatLabel}
         showing={papers.length}
