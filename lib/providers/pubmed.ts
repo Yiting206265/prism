@@ -120,7 +120,7 @@ function toPaper(pmid: string, article: PubmedArticleXml, index: number, categor
 
   const authorEntries = article.MedlineCitation.Article.AuthorList?.Author ?? [];
   const authors = authorEntries
-    .map((a) => a.CollectiveName || [a.ForeName, a.LastName].filter(Boolean).join(' '))
+    .map((a) => decodeXmlEntities(a.CollectiveName || [a.ForeName, a.LastName].filter(Boolean).join(' ')))
     .filter(Boolean);
 
   const published = `${dateStr}T00:00:00Z`;
