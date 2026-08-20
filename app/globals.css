@@ -218,7 +218,7 @@ body {
   font-size: 0.58rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   width: 4.5rem;
   flex-shrink: 0;
 }
@@ -229,7 +229,7 @@ body {
   letter-spacing: 0.02em;
   background: transparent;
   border: 1px solid transparent;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: color 0.12s, border-color 0.12s, background 0.12s;
   padding: 0.15rem 0.4rem;
@@ -259,8 +259,8 @@ body {
 .cat-btn-count {
   font-size: 0.58rem;
   font-variant-numeric: tabular-nums;
-  color: var(--text-muted);
-  opacity: 0.85;
+  color: var(--text-secondary);
+  opacity: 1;
   min-width: 1.2em;
 }
 
