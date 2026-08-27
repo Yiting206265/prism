@@ -58,6 +58,12 @@ interface PubmedAuthor {
   CollectiveName?: string;
 }
 
+interface PubmedDateParts {
+  Year?: string | number;
+  Month?: string | number;
+  Day?: string | number;
+}
+
 interface PubmedArticleXml {
   MedlineCitation: {
     PMID: number | string | { '#text': number | string };
@@ -65,6 +71,11 @@ interface PubmedArticleXml {
       ArticleTitle: string | { '#text': string };
       Abstract?: { AbstractText?: (string | { '#text': string })[] };
       AuthorList?: { Author?: PubmedAuthor[] };
+      // Electronic pub date — when present, this is the date the paper
+      // actually became available (PubDate below is often a nominal
+      // print-issue date that can even sit months in the future).
+      ArticleDate?: PubmedDateParts | PubmedDateParts[];
+      Journal?: { JournalIssue?: { PubDate?: PubmedDateParts } };
     };
   };
 }
@@ -73,6 +84,33 @@ function textOf(value: string | { '#text': string | number } | number | undefine
   if (value === undefined) return '';
   if (typeof value === 'string' || typeof value === 'number') return String(value);
   return String(value['#text'] ?? '');
+}
+
+const MONTH_NUM: Record<string, string> = {
+  jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+  jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12',
+};
+
+function monthToNum(month: string | number | undefined): string {
+  if (month === undefined) return '01';
+  const asNum = typeof month === 'number' ? month : parseInt(month, 10);
+  if (!isNaN(asNum)) return String(asNum).padStart(2, '0');
+  return MONTH_NUM[String(month).slice(0, 3).toLowerCase()] ?? '01';
+}
+
+function datePartsToISO(parts: PubmedDateParts | undefined): string | null {
+  if (!parts?.Year) return null;
+  const day = parts.Day !== undefined ? String(parts.Day).padStart(2, '0') : '01';
+  return `${parts.Year}-${monthToNum(parts.Month)}-${day}`;
+}
+
+// The paper's real publication date, not the query window's end date —
+// needed once the feed spans more than a single day (see PUBMED_WINDOW_DAYS).
+function realPublishedISO(article: PubmedArticleXml, fallback: string): string {
+  const articleDateRaw = article.MedlineCitation.Article.ArticleDate;
+  const articleDate = Array.isArray(articleDateRaw) ? articleDateRaw[0] : articleDateRaw;
+  const pubDate = article.MedlineCitation.Article.Journal?.JournalIssue?.PubDate;
+  return datePartsToISO(articleDate) ?? datePartsToISO(pubDate) ?? fallback;
 }
 
 async function search(
@@ -134,7 +172,7 @@ function toPaper(pmid: string, article: PubmedArticleXml, index: number, categor
     .map((a) => decodeXmlEntities(a.CollectiveName || [a.ForeName, a.LastName].filter(Boolean).join(' ')))
     .filter(Boolean);
 
-  const published = `${dateStr}T00:00:00Z`;
+  const published = `${realPublishedISO(article, dateStr)}T00:00:00Z`;
 
   return {
     id: pmid,

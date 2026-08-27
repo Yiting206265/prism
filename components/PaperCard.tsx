@@ -76,17 +76,18 @@ export default function PaperCard({ paper, index, variant = 'grid', onSummarized
     if (coverState !== 'idle') return;
     setCoverState('loading');
     try {
-      const res = await fetch('/api/cover', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: paper.title,
-          abstract: paper.abstract,
-          model: COVER_MODEL,
-          arxivId: paper.source === 'arxiv' ? paper.id : undefined,
-          pmid: paper.source === 'pubmed' ? paper.id : undefined,
-        }),
+      // GET + query params (not a POST body) so the response is cacheable —
+      // by the browser and by Vercel's edge network — instead of being
+      // regenerated on every visit. See app/api/cover/route.ts for why.
+      const params = new URLSearchParams({
+        title: paper.title,
+        abstract: paper.abstract,
+        model: COVER_MODEL,
       });
+      if (paper.source === 'arxiv') params.set('arxivId', paper.id);
+      if (paper.source === 'pubmed') params.set('pmid', paper.id);
+
+      const res = await fetch(`/api/cover?${params.toString()}`);
       if (!res.ok) throw new Error(`${res.status}`);
       const blob = await res.blob();
       setCoverUrl(URL.createObjectURL(blob));

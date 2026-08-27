@@ -35,7 +35,13 @@ function makeSvgCover(): string {
 </svg>`;
 }
 
-export async function POST(request: NextRequest) {
+// GET (not POST) is what lets this actually get cached: Vercel's edge network
+// and browsers only ever cache GET/HEAD responses, regardless of what
+// Cache-Control says — a POST response is never stored by either. Since a
+// cover is fully determined by its query params, GET is the correct verb
+// here and turns "generate once" into a real guarantee instead of an
+// aspiration resting entirely on the ephemeral /tmp disk cache below.
+export async function GET(request: NextRequest) {
   try {
     const ALLOWED_MODELS: Record<string, string> = {
       'flux-1-schnell':               '@cf/black-forest-labs/flux-1-schnell',
@@ -44,8 +50,12 @@ export async function POST(request: NextRequest) {
       'dreamshaper-8-lcm':            '@cf/lykon/dreamshaper-8-lcm',
     };
 
-    const { title, abstract, model: modelKey = 'flux-1-schnell', arxivId, pmid } =
-      await request.json() as { title?: string; abstract?: string; model?: string; arxivId?: string; pmid?: string };
+    const params = request.nextUrl.searchParams;
+    const title = params.get('title') ?? undefined;
+    const abstract = params.get('abstract') ?? undefined;
+    const modelKey = params.get('model') ?? 'flux-1-schnell';
+    const arxivId = params.get('arxivId') ?? undefined;
+    const pmid = params.get('pmid') ?? undefined;
 
     if (!title || !abstract) {
       return new Response('Missing title or abstract', { status: 400 });
@@ -60,7 +70,7 @@ export async function POST(request: NextRequest) {
       const cachedFigure = readCache(figureCacheKey);
       if (cachedFigure) {
         return new Response(new Uint8Array(cachedFigure.buffer), {
-          headers: { 'Content-Type': cachedFigure.contentType, 'Cache-Control': 'public, max-age=86400', 'X-Cache': 'HIT' },
+          headers: { 'Content-Type': cachedFigure.contentType, 'Cache-Control': 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=2592000', 'X-Cache': 'HIT' },
         });
       }
 
@@ -93,7 +103,7 @@ export async function POST(request: NextRequest) {
                 if (figBuffer.length > 3000) {
                   writeCache(figureCacheKey, figBuffer, contentType);
                   return new Response(new Uint8Array(figBuffer), {
-                    headers: { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=86400', 'X-Cache': 'MISS' },
+                    headers: { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=2592000', 'X-Cache': 'MISS' },
                   });
                 }
               }
@@ -114,7 +124,7 @@ export async function POST(request: NextRequest) {
       const cachedPmcFigure = readCache(pmcFigureCacheKey);
       if (cachedPmcFigure) {
         return new Response(new Uint8Array(cachedPmcFigure.buffer), {
-          headers: { 'Content-Type': cachedPmcFigure.contentType, 'Cache-Control': 'public, max-age=86400', 'X-Cache': 'HIT' },
+          headers: { 'Content-Type': cachedPmcFigure.contentType, 'Cache-Control': 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=2592000', 'X-Cache': 'HIT' },
         });
       }
 
@@ -151,7 +161,7 @@ export async function POST(request: NextRequest) {
                     if (figBuffer.length > 3000) {
                       writeCache(pmcFigureCacheKey, figBuffer, contentType);
                       return new Response(new Uint8Array(figBuffer), {
-                        headers: { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=86400', 'X-Cache': 'MISS' },
+                        headers: { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=2592000', 'X-Cache': 'MISS' },
                       });
                     }
                   }
@@ -173,7 +183,7 @@ export async function POST(request: NextRequest) {
     const cached = readCache(cacheKey);
     if (cached) {
       return new Response(new Uint8Array(cached.buffer), {
-        headers: { 'Content-Type': cached.contentType, 'Cache-Control': 'public, max-age=86400', 'X-Cache': 'HIT' },
+        headers: { 'Content-Type': cached.contentType, 'Cache-Control': 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=2592000', 'X-Cache': 'HIT' },
       });
     }
 
@@ -199,8 +209,9 @@ export async function POST(request: NextRequest) {
 
 Write an image generation prompt as one flowing paragraph (80-110 words):
 1. SUBJECT: identify the single clearest visual metaphor for this paper's central idea — name the exact phenomenon, object, or process from the abstract. Render it as one clean subject with at most 1-2 supporting elements. Adapt the visual style to the field (biological, computational, physical, mathematical, social, etc).
-2. STYLE: minimalist editorial illustration — flat clean shapes, generous negative space, a muted limited color palette, soft even lighting. Simple enough to work as a faded background, not a busy poster.
-3. End the prompt explicitly with: "no text, no letters, no numbers, no words, no logos, no watermark"
+2. NO HUMAN FACES OR FIGURES: image models render these badly — distorted, uncanny. This matters most for medical/clinical subjects (patients, surgery, anatomy), where the natural instinct is to depict a person. Don't. Represent the idea abstractly and symbolically instead: cell structures, molecules, organ silhouettes without facial features, medical iconography, anatomical cross-sections, equipment, or a geometric metaphor for the process. Prefer objects and abstract forms over any human figure.
+3. STYLE: minimalist editorial illustration — flat clean shapes, generous negative space, a muted limited color palette, soft even lighting. Simple enough to work as a faded background, not a busy poster.
+4. End the prompt explicitly with: "no text, no letters, no numbers, no words, no logos, no watermark, no human faces, no human figures"
 
 Be specific to THIS paper's actual subject — not a generic tech/science cliché. No equations, no axis labels, no charts.
 
@@ -308,19 +319,20 @@ Output only the image generation prompt, as one clean paragraph.`,
       }
     }
 
-    // Fallback 3: plain black cover
+    // Fallback 3: plain black cover. Deliberately NOT written to the 7-day
+    // disk cache — every real backend failing is almost always a transient
+    // quota/rate-limit blip, so the next request should retry generation
+    // instead of replaying this placeholder for a week.
     if (!buffer) {
       const svg = makeSvgCover();
-      const svgBuffer = Buffer.from(svg);
-      writeCache(cacheKey, svgBuffer, 'image/svg+xml');
-      return new Response(svgBuffer, {
-        headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=3600', 'X-Cache': 'MISS' },
+      return new Response(Buffer.from(svg), {
+        headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=60', 'X-Cache': 'MISS' },
       });
     }
 
     writeCache(cacheKey, buffer, 'image/png');
     return new Response(new Uint8Array(buffer), {
-      headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400', 'X-Cache': 'MISS' },
+      headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=2592000', 'X-Cache': 'MISS' },
     });
   } catch (error) {
     console.error('[cover] error:', error);
