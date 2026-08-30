@@ -1,12 +1,11 @@
 import type { Metadata } from 'next';
-import { Fraunces, Plus_Jakarta_Sans, IBM_Plex_Mono } from 'next/font/google';
+import { Inter, Plus_Jakarta_Sans, IBM_Plex_Mono } from 'next/font/google';
 import './globals.css';
 
-const fraunces = Fraunces({
+const inter = Inter({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600'],
-  style: ['normal', 'italic'],
-  variable: '--font-fraunces',
+  weight: ['800', '900'],
+  variable: '--font-inter',
   display: 'swap',
 });
 
@@ -34,7 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${jakartaSans.variable} ${ibmMono.variable}`}
+      className={`${inter.variable} ${jakartaSans.variable} ${ibmMono.variable}`}
     >
       <head>
         {/* Prevent flash of wrong theme on load */}

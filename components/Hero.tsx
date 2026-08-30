@@ -111,7 +111,7 @@ export default function Hero({
           </div>
 
           <h1 className="hero-banner-headline">
-            Research, refracted.
+            New papers, discovered daily.
           </h1>
 
           <p className="hero-banner-field">
