@@ -91,11 +91,16 @@ export default function Hero({
       <div className="hero-banner-media" aria-hidden="true">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/hero-banner.jpg?v=2"
+          key={categoryCode}
+          src={`/banners/${categoryCode}.jpg`}
           alt=""
           className="hero-banner-img"
           width={1920}
           height={1080}
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            e.currentTarget.src = '/banners/cs.AI.jpg';
+          }}
         />
         <div className="hero-banner-scrim" />
       </div>
