@@ -318,7 +318,7 @@ body {
 @media (max-width: 640px) {
   .cat-strip { position: relative; top: auto; }
   .cat-strip-inner { padding: 0.9rem 0; gap: 0.45rem; }
-  .cat-row { padding: 0 1rem; }
+  .cat-row { padding: 0 1.15rem; }
   .cat-group-lbl { width: auto; font-size: 0.6rem; align-self: flex-start; padding-top: 0.4rem; }
 
   .cat-row-scroll {
@@ -326,18 +326,20 @@ body {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
-    padding: 0.05rem 1rem 0.4rem 0;
-    margin-right: -1rem;
+    padding: 0.05rem 2.5rem 0.4rem 0;
+    margin-right: 0;
   }
   .cat-row-scroll::-webkit-scrollbar { display: none; }
 
   .cat-btn {
     font-size: 0.76rem;
-    padding: 0.35rem 0.6rem;
+    padding: 0.35rem 0.55rem;
     white-space: nowrap;
     flex-shrink: 0;
   }
-  .cat-btn-count { font-size: 0.68rem; opacity: 1; }
+  /* Counts on every chip make the row overflow; keep them on the active one. */
+  .cat-btn-count { font-size: 0.68rem; opacity: 0; }
+  .cat-btn.active .cat-btn-count { opacity: 1; }
 }
 
 /* ── Hero banner ─────────────────────────── */
@@ -469,10 +471,13 @@ body {
 
 @media (max-width: 640px) {
   .hero-banner { min-height: 100svh; }
-  .hero-banner-inner { padding: 0 1.15rem 3.25rem; }
-  .hero-banner-stats { gap: 1.5rem; }
+  .hero-banner-inner {
+    padding: 0 1.15rem max(3.25rem, calc(env(safe-area-inset-bottom) + 2rem));
+  }
+  .hero-banner-stats { gap: 1.15rem; }
   .hero-stat-value { font-size: 1.35rem; }
-  .hero-banner-headline { font-size: clamp(2.4rem, 14vw, 3.6rem); }
+  .hero-banner-headline { font-size: clamp(2.2rem, 12vw, 3.2rem); }
+  .hero-banner-overline { font-size: 0.64rem; letter-spacing: 0.12em; }
 }
 
 /* ── Papers section ──────────────────────── */
@@ -1039,16 +1044,29 @@ body {
 
 /* ── Mobile ──────────────────────────────── */
 @media (max-width: 640px) {
+  html { overflow-x: hidden; scroll-padding-top: 72px; }
+  .cat-strip { scroll-margin-top: 72px; }
+
   .paper-card-featured { padding-bottom: 2.25rem; }
   .paper-card-featured .paper-content { padding: 1.5rem 0 0; }
-  .paper-card-grid .paper-content { padding: 1.1rem 0.5rem 1.25rem; }
+  .paper-card-featured .paper-cover-frame { aspect-ratio: 16 / 9; }
 
-  .papers-section {
-    padding: 2rem 1.15rem 3.5rem;
+  /* Negative desktop margin was clipping the first letter of titles/actions. */
+  .paper-card-grid .paper-content {
+    margin: 0;
+    padding: 1.15rem 0 1.2rem;
   }
 
-  .header-inner { padding: 0 1.15rem; }
-  .header-actions { gap: 1rem; }
+  .paper-actions { gap: 0.55rem; }
+
+  .papers-section {
+    padding: 2rem 1.15rem max(3.5rem, calc(env(safe-area-inset-bottom) + 2rem));
+  }
+
+  .header-inner {
+    padding: 0 max(1.15rem, env(safe-area-inset-right)) 0 max(1.15rem, env(safe-area-inset-left));
+  }
+  .header-actions { gap: 0.85rem; }
   .header-link,
   .theme-toggle,
   .logo-name { letter-spacing: 0.12em; }
