@@ -317,28 +317,34 @@ body {
 
 @media (max-width: 640px) {
   .cat-strip { position: relative; top: auto; }
-  .cat-strip-inner { padding: 0.9rem 0; gap: 0.45rem; }
-  .cat-row { padding: 0 1.15rem; }
-  .cat-group-lbl { width: auto; font-size: 0.6rem; align-self: flex-start; padding-top: 0.4rem; }
+  .cat-strip-inner { padding: 1rem 1.15rem 1.15rem; gap: 0.7rem; }
+  .cat-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.2rem;
+    padding: 0;
+  }
+  .cat-group-lbl {
+    width: auto;
+    font-size: 0.58rem;
+    padding-top: 0;
+  }
 
   .cat-row-scroll {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    padding: 0.05rem 2.5rem 0.4rem 0;
-    margin-right: 0;
+    flex-wrap: wrap;
+    overflow: visible;
+    padding: 0;
+    margin: 0;
+    gap: 0.1rem 0.15rem;
   }
-  .cat-row-scroll::-webkit-scrollbar { display: none; }
 
   .cat-btn {
-    font-size: 0.76rem;
-    padding: 0.35rem 0.55rem;
+    font-size: 0.72rem;
+    padding: 0.22rem 0.4rem;
     white-space: nowrap;
     flex-shrink: 0;
   }
-  /* Counts on every chip make the row overflow; keep them on the active one. */
-  .cat-btn-count { font-size: 0.68rem; opacity: 0; }
+  .cat-btn-count { font-size: 0.62rem; opacity: 0; }
   .cat-btn.active .cat-btn-count { opacity: 1; }
 }
 
@@ -470,14 +476,18 @@ body {
 }
 
 @media (max-width: 640px) {
-  .hero-banner { min-height: 100svh; }
+  .hero-banner {
+    min-height: 0;
+    height: auto;
+  }
   .hero-banner-inner {
-    padding: 0 1.15rem max(3.25rem, calc(env(safe-area-inset-bottom) + 2rem));
+    padding: 5.75rem 1.15rem 2.25rem;
   }
   .hero-banner-stats { gap: 1.15rem; }
-  .hero-stat-value { font-size: 1.35rem; }
-  .hero-banner-headline { font-size: clamp(2.2rem, 12vw, 3.2rem); }
-  .hero-banner-overline { font-size: 0.64rem; letter-spacing: 0.12em; }
+  .hero-stat-value { font-size: 1.25rem; }
+  .hero-banner-headline { font-size: clamp(2rem, 11vw, 2.75rem); }
+  .hero-banner-overline { font-size: 0.62rem; letter-spacing: 0.1em; gap: 0.35rem; }
+  .hero-banner-img { object-position: 65% 40%; }
 }
 
 /* ── Papers section ──────────────────────── */
