@@ -317,34 +317,41 @@ body {
 
 @media (max-width: 640px) {
   .cat-strip { position: relative; top: auto; }
-  .cat-strip-inner { padding: 1rem 1.15rem 1.15rem; gap: 0.7rem; }
+  .cat-strip-inner { padding: 0.75rem 1rem 1rem; gap: 0.28rem; }
   .cat-row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.2rem;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    gap: 0.35rem;
     padding: 0;
   }
   .cat-group-lbl {
-    width: auto;
-    font-size: 0.58rem;
-    padding-top: 0;
+    width: 4.15rem;
+    font-size: 0.56rem;
+    letter-spacing: 0.1em;
+    padding-top: 0.28rem;
+    line-height: 1.3;
   }
 
   .cat-row-scroll {
+    flex: 1;
     flex-wrap: wrap;
+    justify-content: flex-start;
+    align-content: flex-start;
+    align-items: baseline;
     overflow: visible;
     padding: 0;
     margin: 0;
-    gap: 0.1rem 0.15rem;
+    gap: 0 0.45rem;
   }
 
   .cat-btn {
-    font-size: 0.72rem;
-    padding: 0.22rem 0.4rem;
+    font-size: 0.7rem;
+    padding: 0.18rem 0;
     white-space: nowrap;
-    flex-shrink: 0;
+    flex: 0 0 auto;
   }
-  .cat-btn-count { font-size: 0.62rem; opacity: 0; }
+  .cat-btn-count { font-size: 0.6rem; opacity: 0; }
   .cat-btn.active .cat-btn-count { opacity: 1; }
 }
 
@@ -481,12 +488,26 @@ body {
     height: auto;
   }
   .hero-banner-inner {
-    padding: 5.75rem 1.15rem 2.25rem;
+    padding: 4.25rem 1rem 1.35rem;
   }
-  .hero-banner-stats { gap: 1.15rem; }
-  .hero-stat-value { font-size: 1.25rem; }
-  .hero-banner-headline { font-size: clamp(2rem, 11vw, 2.75rem); }
-  .hero-banner-overline { font-size: 0.62rem; letter-spacing: 0.1em; gap: 0.35rem; }
+  .hero-banner-panel { max-width: none; }
+  .hero-banner-overline {
+    font-size: 0.58rem;
+    letter-spacing: 0.08em;
+    gap: 0.3rem;
+    margin-bottom: 0.5rem;
+  }
+  .hero-banner-headline {
+    font-size: clamp(1.7rem, 9vw, 2.2rem);
+    margin-bottom: 0.75rem;
+  }
+  .hero-banner-stats {
+    gap: 1rem;
+    padding-top: 0.7rem;
+  }
+  .hero-stat { gap: 0.2rem; min-width: 0; }
+  .hero-stat-value { font-size: 1.15rem; }
+  .hero-stat-label { font-size: 0.58rem; letter-spacing: 0.1em; }
   .hero-banner-img { object-position: 65% 40%; }
 }
 
@@ -1054,8 +1075,9 @@ body {
 
 /* ── Mobile ──────────────────────────────── */
 @media (max-width: 640px) {
-  html { overflow-x: hidden; scroll-padding-top: 72px; }
-  .cat-strip { scroll-margin-top: 72px; }
+  html { overflow-x: hidden; scroll-padding-top: 56px; }
+  .header-inner { height: 48px; }
+  .cat-strip { scroll-margin-top: 56px; }
 
   .paper-card-featured { padding-bottom: 2.25rem; }
   .paper-card-featured .paper-content { padding: 1.5rem 0 0; }
