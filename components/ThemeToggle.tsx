@@ -3,11 +3,11 @@
 import { useEffect, useState } from 'react';
 
 export default function ThemeToggle() {
-  const [theme, setTheme] = useState<'dark' | 'light'>('light'); // matches script default
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark'); // matches script default
 
   useEffect(() => {
     const stored = localStorage.getItem('prism-theme') as 'dark' | 'light' | null;
-    const initial = stored ?? 'light'; // must match the script default in layout.tsx
+    const initial = stored ?? 'dark'; // must match the script default in layout.tsx
     setTheme(initial);
     document.documentElement.setAttribute('data-theme', initial);
   }, []);
@@ -26,7 +26,7 @@ export default function ThemeToggle() {
       aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
       title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
     >
-      {theme === 'dark' ? '☀' : '☽'}
+      {theme === 'dark' ? 'Light' : 'Dark'}
     </button>
   );
 }

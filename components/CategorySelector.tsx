@@ -27,33 +27,35 @@ export default function CategorySelector({
             <span className="cat-group-lbl" aria-hidden="true">
               {group.label}
             </span>
-            {group.categories.map((cat) => {
-              const count = counts[cat.id];
-              const hasCount = typeof count === 'number';
-              return (
-                <button
-                  key={cat.id}
-                  role="tab"
-                  aria-selected={selected === cat.id}
-                  className={`cat-btn${selected === cat.id ? ' active' : ''}`}
-                  onClick={() => onChange(cat.id)}
-                  title={
-                    hasCount
-                      ? date
-                        ? `${cat.label} — ${count.toLocaleString()} papers on ${date}`
-                        : `${cat.label} — ${count.toLocaleString()} new today`
-                      : cat.label
-                  }
-                >
-                  <span className="cat-btn-code">{cat.label}</span>
-                  <span
-                    className={`cat-btn-count${countsLoading && !hasCount ? ' loading' : ''}`}
+            <div className="cat-row-scroll">
+              {group.categories.map((cat) => {
+                const count = counts[cat.id];
+                const hasCount = typeof count === 'number';
+                return (
+                  <button
+                    key={cat.id}
+                    role="tab"
+                    aria-selected={selected === cat.id}
+                    className={`cat-btn${selected === cat.id ? ' active' : ''}`}
+                    onClick={() => onChange(cat.id)}
+                    title={
+                      hasCount
+                        ? date
+                          ? `${cat.label} — ${count.toLocaleString()} papers on ${date}`
+                          : `${cat.label} — ${count.toLocaleString()} new today`
+                        : cat.label
+                    }
                   >
-                    {hasCount ? count.toLocaleString() : countsLoading ? '·' : '—'}
-                  </span>
-                </button>
-              );
-            })}
+                    <span className="cat-btn-code">{cat.label}</span>
+                    <span
+                      className={`cat-btn-count${countsLoading && !hasCount ? ' loading' : ''}`}
+                    >
+                      {hasCount ? count.toLocaleString() : countsLoading ? '·' : '—'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         ))}
       </div>

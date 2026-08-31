@@ -91,7 +91,7 @@ export default function Hero({
       <div className="hero-banner-media" aria-hidden="true">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/hero-banner.jpg"
+          src="/hero-banner.jpg?v=2"
           alt=""
           className="hero-banner-img"
           width={1920}
@@ -111,13 +111,8 @@ export default function Hero({
           </div>
 
           <h1 className="hero-banner-headline">
-            New papers, discovered daily.
+            {categoryLabel}
           </h1>
-
-          <p className="hero-banner-field">
-            <span className="hero-banner-field-label">Now viewing</span>
-            <span className="hero-banner-field-name">{categoryLabel}</span>
-          </p>
 
           <div className="hero-banner-stats">
             <HeroStat

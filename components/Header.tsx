@@ -32,8 +32,6 @@ export default function Header() {
           </svg>
 
           <span className="logo-name">Prism</span>
-          <span className="logo-dot" aria-hidden="true" />
-          <span className="logo-tagline">Research, refracted.</span>
         </div>
 
         <nav className="header-actions">
@@ -43,7 +41,7 @@ export default function Header() {
             rel="noopener noreferrer"
             className="header-link"
           >
-            arXiv ↗
+            arXiv
           </a>
           <a
             href="https://arxiv.org/help/api"
@@ -51,7 +49,7 @@ export default function Header() {
             rel="noopener noreferrer"
             className="header-link"
           >
-            API ↗
+            API
           </a>
           <ThemeToggle />
         </nav>

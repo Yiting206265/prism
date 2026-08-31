@@ -1,18 +1,18 @@
 import type { Metadata } from 'next';
-import { Inter, Plus_Jakarta_Sans, IBM_Plex_Mono } from 'next/font/google';
+import { Oswald, Barlow, IBM_Plex_Mono } from 'next/font/google';
 import './globals.css';
 
-const inter = Inter({
+const oswald = Oswald({
   subsets: ['latin'],
-  weight: ['800', '900'],
-  variable: '--font-inter',
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-oswald',
   display: 'swap',
 });
 
-const jakartaSans = Plus_Jakarta_Sans({
+const barlow = Barlow({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600'],
-  variable: '--font-jakarta',
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-barlow',
   display: 'swap',
 });
 
@@ -24,7 +24,7 @@ const ibmMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Prism — Research, refracted.',
+  title: 'Prism',
   description:
     'Discover the latest arXiv preprints with AI-powered summaries. A faster, more beautiful way to stay on top of research.',
 };
@@ -33,13 +33,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${jakartaSans.variable} ${ibmMono.variable}`}
+      className={`${oswald.variable} ${barlow.variable} ${ibmMono.variable}`}
     >
       <head>
         {/* Prevent flash of wrong theme on load */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var t=localStorage.getItem('prism-theme');document.documentElement.setAttribute('data-theme',t||'light');})()`,
+            __html: `(function(){var t=localStorage.getItem('prism-theme');document.documentElement.setAttribute('data-theme',t||'dark');})()`,
           }}
         />
       </head>

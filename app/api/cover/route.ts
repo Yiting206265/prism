@@ -177,9 +177,14 @@ export async function GET(request: NextRequest) {
 
     const cfModel = ALLOWED_MODELS[modelKey] ?? ALLOWED_MODELS['flux-1-schnell'];
     const useCloudflare = !!process.env.CF_ACCOUNT_ID && !!process.env.CF_API_TOKEN;
+    // PubMed / medical covers are the ones that go uncanny when the model
+    // tries to draw patients, surgery, or anatomy. Other fields don't get
+    // that restriction — see the Groq prompt split below.
+    const isMedical = !!pmid;
 
-    // Return cached image if available
-    const cacheKey = getCacheKey(title, modelKey);
+    // Return cached image if available. Non-medical keys are versioned so
+    // covers generated under the old global no-faces prompt can refresh.
+    const cacheKey = getCacheKey(title, isMedical ? modelKey : `${modelKey}:open`);
     const cached = readCache(cacheKey);
     if (cached) {
       return new Response(new Uint8Array(cached.buffer), {
@@ -205,13 +210,27 @@ export async function GET(request: NextRequest) {
           max_tokens: 200,
           messages: [{
             role: 'user',
-            content: `You are an editorial illustrator creating ONE minimalist concept image for a research paper. It will be shown faded and tinted as a background texture behind the paper's real title, which is rendered separately as HTML text — so the image itself must contain ZERO text, letters, numbers, words, logos, or typography of any kind.
+            content: isMedical
+              ? `You are an editorial illustrator creating ONE minimalist concept image for a medical research paper. It will be shown faded and tinted as a background texture behind the paper's real title, which is rendered separately as HTML text — so the image itself must contain ZERO text, letters, numbers, words, logos, or typography of any kind.
 
 Write an image generation prompt as one flowing paragraph (80-110 words):
-1. SUBJECT: identify the single clearest visual metaphor for this paper's central idea — name the exact phenomenon, object, or process from the abstract. Render it as one clean subject with at most 1-2 supporting elements. Adapt the visual style to the field (biological, computational, physical, mathematical, social, etc).
-2. NO HUMAN FACES OR FIGURES: image models render these badly — distorted, uncanny. This matters most for medical/clinical subjects (patients, surgery, anatomy), where the natural instinct is to depict a person. Don't. Represent the idea abstractly and symbolically instead: cell structures, molecules, organ silhouettes without facial features, medical iconography, anatomical cross-sections, equipment, or a geometric metaphor for the process. Prefer objects and abstract forms over any human figure.
+1. SUBJECT: identify the single clearest visual metaphor for this paper's central idea — name the exact phenomenon, object, or process from the abstract. Render it as one clean subject with at most 1-2 supporting elements.
+2. NO HUMAN FACES OR FIGURES: image models render patients, surgery, and anatomy as distorted and uncanny. Don't depict a person. Represent the idea abstractly and symbolically instead: cell structures, molecules, organ silhouettes without facial features, medical iconography, anatomical cross-sections, equipment, or a geometric metaphor for the process. Prefer objects and abstract forms over any human figure.
 3. STYLE: minimalist editorial illustration — flat clean shapes, generous negative space, a muted limited color palette, soft even lighting. Simple enough to work as a faded background, not a busy poster.
 4. End the prompt explicitly with: "no text, no letters, no numbers, no words, no logos, no watermark, no human faces, no human figures"
+
+Be specific to THIS paper's actual subject — not a generic medical cliché. No equations, no axis labels, no charts.
+
+Title: ${title}
+Abstract: ${abstract.slice(0, 600)}
+
+Output only the image generation prompt, as one clean paragraph.`
+              : `You are an editorial illustrator creating ONE minimalist concept image for a research paper. It will be shown faded and tinted as a background texture behind the paper's real title, which is rendered separately as HTML text — so the image itself must contain ZERO text, letters, numbers, words, logos, or typography of any kind.
+
+Write an image generation prompt as one flowing paragraph (80-110 words):
+1. SUBJECT: identify the single clearest visual metaphor for this paper's central idea — name the exact phenomenon, object, or process from the abstract. Render it as one clean subject with at most 1-2 supporting elements. Adapt the visual style to the field (computational, physical, mathematical, biological, social, etc). People, scenes, or figures are fine when they actually serve the idea.
+2. STYLE: minimalist editorial illustration — flat clean shapes, generous negative space, a muted limited color palette, soft even lighting. Simple enough to work as a faded background, not a busy poster.
+3. End the prompt explicitly with: "no text, no letters, no numbers, no words, no logos, no watermark"
 
 Be specific to THIS paper's actual subject — not a generic tech/science cliché. No equations, no axis labels, no charts.
 
