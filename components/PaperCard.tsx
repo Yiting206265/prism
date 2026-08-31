@@ -297,7 +297,7 @@ export default function PaperCard({ paper, index, variant = 'grid', onSummarized
             onClick={() => setExpanded((e) => !e)}
             aria-expanded={expanded}
           >
-            {expanded ? '↑ Collapse' : '↓ Abstract'}
+            {expanded ? 'Close' : 'Abstract'}
           </button>
         )}
 
@@ -308,10 +308,10 @@ export default function PaperCard({ paper, index, variant = 'grid', onSummarized
           aria-expanded={sumState === 'done' ? summaryVisible : undefined}
         >
           {sumState === 'streaming'
-            ? '✦ Summarizing…'
+            ? 'Summary…'
             : sumState === 'done'
-            ? summaryVisible ? '✦ Hide Summary' : '✦ Show Summary'
-            : '✦ Summarize'}
+            ? summaryVisible ? 'Hide' : 'Summary'
+            : 'Summary'}
         </button>
 
         <button
@@ -320,10 +320,10 @@ export default function PaperCard({ paper, index, variant = 'grid', onSummarized
           disabled={speechState === 'loading'}
         >
           {speechState === 'loading'
-            ? '… Loading'
+            ? 'Listen…'
             : speechState === 'speaking'
-            ? '◼ Stop'
-            : '▶ Listen'}
+            ? 'Stop'
+            : 'Listen'}
         </button>
 
         {paper.source === 'pubmed' ? (
@@ -333,7 +333,7 @@ export default function PaperCard({ paper, index, variant = 'grid', onSummarized
             rel="noopener noreferrer"
             className="action-btn pdf-btn"
           >
-            View on PubMed ↗
+            PubMed
           </a>
         ) : (
           <>
@@ -343,7 +343,7 @@ export default function PaperCard({ paper, index, variant = 'grid', onSummarized
               rel="noopener noreferrer"
               className="action-btn pdf-btn"
             >
-              PDF ↗
+              PDF
             </a>
 
             <a
@@ -352,7 +352,7 @@ export default function PaperCard({ paper, index, variant = 'grid', onSummarized
               rel="noopener noreferrer"
               className="action-btn"
             >
-              arXiv ↗
+              arXiv
             </a>
           </>
         )}
