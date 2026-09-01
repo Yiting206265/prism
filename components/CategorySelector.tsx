@@ -16,7 +16,6 @@ export default function CategorySelector({
   selected,
   onChange,
   counts = {},
-  countsLoading = false,
   date = null,
 }: Props) {
   return (
@@ -47,11 +46,6 @@ export default function CategorySelector({
                     }
                   >
                     <span className="cat-btn-code">{cat.label}</span>
-                    <span
-                      className={`cat-btn-count${countsLoading && !hasCount ? ' loading' : ''}`}
-                    >
-                      {hasCount ? count.toLocaleString() : countsLoading ? '·' : '—'}
-                    </span>
                   </button>
                 );
               })}
