@@ -30,42 +30,10 @@ function fmtAuthors(authors: string[], max = 3): string {
 type SumState = 'idle' | 'streaming' | 'done' | 'error';
 type Variant = 'featured' | 'grid';
 type CoverState = 'idle' | 'loading' | 'done' | 'error';
-type SpeechState = 'idle' | 'speaking';
+type SpeechState = 'idle' | 'loading' | 'speaking';
 
-// Only one card should speak at a time.
-let activeSpeech: { stop: () => void } | null = null;
-
-function chunkText(text: string, max = 240): string[] {
-  const cleaned = text.replace(/\s+/g, ' ').trim();
-  const sentences = cleaned.match(/[^.!?]+[.!?]*\s*/g) || [cleaned];
-  const chunks: string[] = [];
-  let buf = '';
-  for (const s of sentences) {
-    if (buf && buf.length + s.length > max) {
-      chunks.push(buf.trim());
-      buf = s;
-    } else {
-      buf += s;
-    }
-  }
-  if (buf.trim()) chunks.push(buf.trim());
-  return chunks;
-}
-
-function pickVoice(): SpeechSynthesisVoice | undefined {
-  if (typeof window === 'undefined' || !window.speechSynthesis) return undefined;
-  const voices = window.speechSynthesis.getVoices();
-  const en = voices.filter((v) => v.lang.toLowerCase().startsWith('en'));
-  return (
-    en.find((v) =>
-      /samantha|karen|moira|daniel|alex|aria|jenny|natural|enhanced|premium|google us/i.test(
-        v.name
-      )
-    ) ||
-    en.find((v) => v.localService) ||
-    en[0]
-  );
-}
+// Only one card should play audio at a time.
+let activeSpeech: { audio: HTMLAudioElement; stop: () => void } | null = null;
 
 interface Props {
   paper: Paper;
@@ -88,32 +56,26 @@ export default function PaperCard({ paper, index, variant = 'grid', onSummarized
   const [coverState, setCoverState] = useState<CoverState>('idle');
   const [speechState, setSpeechState] = useState<SpeechState>('idle');
   const cardRef = useRef<HTMLElement>(null);
-  const speakingRef = useRef(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   function stopSpeech() {
-    if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
-    speakingRef.current = false;
-    activeSpeech = null;
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audioRef.current = null;
+      if (activeSpeech?.audio === audio) activeSpeech = null;
+    }
     setSpeechState('idle');
   }
 
-  // Stop this card if it unmounts mid-speech (e.g. scrolled out)
   useEffect(() => {
     return () => {
-      if (speakingRef.current) {
-        window.speechSynthesis?.cancel();
-        activeSpeech = null;
+      const audio = audioRef.current;
+      if (audio) {
+        audio.pause();
+        if (activeSpeech?.audio === audio) activeSpeech = null;
       }
     };
-  }, []);
-
-  // Chrome only fills the voice list after this event.
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return;
-    window.speechSynthesis.getVoices();
-    const onVoices = () => window.speechSynthesis.getVoices();
-    window.speechSynthesis.addEventListener('voiceschanged', onVoices);
-    return () => window.speechSynthesis.removeEventListener('voiceschanged', onVoices);
   }, []);
 
   useEffect(() => {
@@ -200,52 +162,60 @@ export default function PaperCard({ paper, index, variant = 'grid', onSummarized
     }
   }
 
-  function handleListen() {
-    if (speechState === 'speaking') {
+  async function handleListen() {
+    if (speechState === 'speaking' || speechState === 'loading') {
       stopSpeech();
       return;
     }
 
-    if (typeof window === 'undefined' || !window.speechSynthesis) return;
-
-    // Only one card should speak at a time.
     activeSpeech?.stop();
 
     const text = (sumState === 'done' && summary ? summary : paper.abstract).trim();
     if (!text) return;
 
-    const chunks = chunkText(text);
-    const voice = pickVoice();
-    let i = 0;
-    speakingRef.current = true;
-    setSpeechState('speaking');
+    // Unlock audio on the click itself so Safari will still play after the
+    // TTS request returns (featured cards wait longer because of CF load).
+    const audio = new Audio();
+    audioRef.current = audio;
+    try {
+      const Ctx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (Ctx) void new Ctx().resume();
+    } catch {
+      /* ignore */
+    }
 
-    const stop = () => {
-      window.speechSynthesis.cancel();
-      speakingRef.current = false;
-      activeSpeech = null;
-      setSpeechState('idle');
-    };
-    activeSpeech = { stop };
+    setSpeechState('loading');
 
-    const speakNext = () => {
-      if (!speakingRef.current) return;
-      if (i >= chunks.length) {
-        speakingRef.current = false;
-        activeSpeech = null;
+    try {
+      const res = await fetch('/api/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) throw new Error(`${res.status}`);
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      audio.src = url;
+
+      const cleanup = () => {
+        URL.revokeObjectURL(url);
+        if (activeSpeech?.audio === audio) activeSpeech = null;
+        if (audioRef.current === audio) audioRef.current = null;
         setSpeechState('idle');
-        return;
-      }
-      const u = new SpeechSynthesisUtterance(chunks[i++]);
-      if (voice) u.voice = voice;
-      u.lang = voice?.lang || 'en-US';
-      u.rate = 1.02;
-      u.onend = speakNext;
-      u.onerror = () => stop();
-      window.speechSynthesis.speak(u);
-    };
+      };
+      audio.onended = cleanup;
+      audio.onerror = cleanup;
 
-    speakNext();
+      activeSpeech = { audio, stop: stopSpeech };
+      await audio.play();
+      setSpeechState('speaking');
+    } catch {
+      if (audioRef.current === audio) audioRef.current = null;
+      setSpeechState('idle');
+    }
   }
 
   return (
@@ -357,10 +327,15 @@ export default function PaperCard({ paper, index, variant = 'grid', onSummarized
         </button>
 
         <button
-          className={`action-btn listen-btn${speechState === 'speaking' ? ' speaking' : ''}`}
+          className={`action-btn listen-btn${speechState !== 'idle' ? ' speaking' : ''}`}
           onClick={handleListen}
+          disabled={speechState === 'loading'}
         >
-          {speechState === 'speaking' ? 'Stop' : 'Listen'}
+          {speechState === 'loading'
+            ? 'Listen…'
+            : speechState === 'speaking'
+            ? 'Stop'
+            : 'Listen'}
         </button>
 
         {paper.source === 'pubmed' ? (
