@@ -55,6 +55,7 @@ export default function PaperCard({ paper, index, variant = 'grid', onSummarized
   const [coverUrl, setCoverUrl]     = useState('');
   const [coverState, setCoverState] = useState<CoverState>('idle');
   const [speechState, setSpeechState] = useState<SpeechState>('idle');
+  const [listenLimit, setListenLimit] = useState(false);
   const cardRef = useRef<HTMLElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -194,6 +195,10 @@ export default function PaperCard({ paper, index, variant = 'grid', onSummarized
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
       });
+      if (res.status === 429) {
+        setListenLimit(true);
+        throw new Error('limit');
+      }
       if (!res.ok) throw new Error(`${res.status}`);
 
       const blob = await res.blob();
@@ -329,9 +334,12 @@ export default function PaperCard({ paper, index, variant = 'grid', onSummarized
         <button
           className={`action-btn listen-btn${speechState !== 'idle' ? ' speaking' : ''}`}
           onClick={handleListen}
-          disabled={speechState === 'loading'}
+          disabled={speechState === 'loading' || listenLimit}
+          title={listenLimit ? 'Daily listen limit reached' : undefined}
         >
-          {speechState === 'loading'
+          {listenLimit
+            ? 'Limit'
+            : speechState === 'loading'
             ? 'Listen…'
             : speechState === 'speaking'
             ? 'Stop'

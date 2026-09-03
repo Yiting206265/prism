@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { clientIp, takeListenSlot } from '@/lib/listenQuota';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -72,6 +73,15 @@ export async function POST(request: NextRequest) {
 
     if (!text?.trim()) {
       return new Response('Missing text', { status: 400 });
+    }
+
+    const denied = takeListenSlot(clientIp(request.headers));
+    if (denied) {
+      const message =
+        denied === 'ip'
+          ? 'You have used today’s listen limit.'
+          : 'Listen is at today’s free limit. Try again tomorrow.';
+      return new Response(message, { status: 429 });
     }
 
     const accountId = process.env.CF_ACCOUNT_ID;

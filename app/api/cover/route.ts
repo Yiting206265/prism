@@ -176,7 +176,9 @@ export async function GET(request: NextRequest) {
     }
 
     const cfModel = ALLOWED_MODELS[modelKey] ?? ALLOWED_MODELS['flux-1-schnell'];
-    const useCloudflare = !!process.env.CF_ACCOUNT_ID && !!process.env.CF_API_TOKEN;
+    const { takeCfCoverSlot, takeGroqSlot } = await import('@/lib/listenQuota');
+    const useCloudflare =
+      !!process.env.CF_ACCOUNT_ID && !!process.env.CF_API_TOKEN && takeCfCoverSlot();
     // PubMed / medical covers are the ones that go uncanny when the model
     // tries to draw patients, surgery, or anatomy. Other fields don't get
     // that restriction — see the Groq prompt split below.
@@ -198,6 +200,9 @@ export async function GET(request: NextRequest) {
     // instead of failing the whole request.
     let visualPrompt = title;
     try {
+      if (!process.env.GROQ_API_KEY || !takeGroqSlot()) {
+        /* stay on the raw title — no Groq charge */
+      } else {
       const promptRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -247,6 +252,7 @@ Output only the image generation prompt, as one clean paragraph.`,
         visualPrompt = promptData.choices?.[0]?.message?.content?.trim() ?? title;
       } else {
         console.warn('[cover] Groq unavailable, using raw title as prompt:', promptRes.status);
+      }
       }
     } catch (e) {
       console.warn('[cover] Groq error, using raw title as prompt:', e instanceof Error ? e.message : e);

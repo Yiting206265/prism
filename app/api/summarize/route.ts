@@ -9,6 +9,13 @@ export async function POST(request: NextRequest) {
       return new Response('Missing title or abstract', { status: 400 });
     }
 
+    const { takeGroqSlot } = await import('@/lib/listenQuota');
+    if (!takeGroqSlot()) {
+      return new Response('Summaries are at today’s free limit. Try again tomorrow.', {
+        status: 429,
+      });
+    }
+
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
