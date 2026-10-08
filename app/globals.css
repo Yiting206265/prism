@@ -220,12 +220,96 @@ body {
 }
 
 /* ── Category strip ─────────────────────── */
+.cat-strip-sentinel {
+  height: 1px;
+  margin-bottom: -1px;
+  pointer-events: none;
+}
+
 .cat-strip {
   position: sticky;
   top: 64px;
   z-index: 40;
   border-bottom: none;
   background: var(--bg);
+}
+
+.cat-strip.is-collapsed {
+  border-bottom: 1px solid var(--border);
+}
+
+.cat-strip-compact {
+  max-width: 1120px;
+  min-height: 48px;
+  margin: 0 auto;
+  padding: 0 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.cat-current {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+}
+
+.cat-current-label,
+.cat-expand-btn {
+  font-family: var(--display);
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.cat-current-name {
+  overflow: hidden;
+  font-family: var(--display);
+  font-size: 0.76rem;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.cat-current-code {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-muted);
+}
+
+.cat-expand-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.45rem 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  transition: color 0.18s ease;
+}
+
+.cat-expand-btn:hover { color: var(--text-primary); }
+
+.cat-expand-icon {
+  width: 1rem;
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  line-height: 1;
+  text-align: center;
+}
+
+.cat-strip.is-expanded .cat-strip-inner {
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--border);
 }
 
 .cat-strip-inner {
@@ -297,7 +381,16 @@ body {
 }
 
 @media (max-width: 640px) {
-  .cat-strip { position: relative; top: auto; }
+  .cat-strip { top: 48px; }
+  .cat-strip-compact {
+    min-height: 44px;
+    padding: 0 1rem;
+  }
+  .cat-current { gap: 0.45rem; }
+  .cat-current-label { display: none; }
+  .cat-current-name { font-size: 0.68rem; letter-spacing: 0.1em; }
+  .cat-current-code { display: none; }
+  .cat-expand-btn { font-size: 0.56rem; letter-spacing: 0.1em; }
   .cat-strip-inner { padding: 0.75rem 1rem 1rem; gap: 0.28rem; }
   .cat-row {
     flex-direction: row;
