@@ -1,1 +1,1 @@
-https://prism-red-zeta.vercel.app/
+https://prismdailyarxiv.com/
