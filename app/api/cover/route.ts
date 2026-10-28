@@ -1,0 +1,393 @@
+import { NextRequest } from 'next/server';
+import { createHash } from 'crypto';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync } from 'fs';
+import { join } from 'path';
+import sharp from 'sharp';
+
+const CACHE_DIR = process.env.VERCEL ? join('/tmp', 'covers') : join(process.cwd(), '.cache', 'covers');
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+function getCacheKey(title: string, model: string): string {
+  return createHash('sha256').update(`${model}:${title}`).digest('hex').slice(0, 32);
+}
+
+function readCache(key: string): { buffer: Buffer; contentType: string } | null {
+  const metaPath = join(CACHE_DIR, `${key}.json`);
+  const dataPath = join(CACHE_DIR, `${key}.bin`);
+  if (!existsSync(metaPath) || !existsSync(dataPath)) return null;
+  const age = Date.now() - statSync(dataPath).mtimeMs;
+  if (age > CACHE_TTL_MS) return null;
+  const { contentType } = JSON.parse(readFileSync(metaPath, 'utf8'));
+  return { buffer: readFileSync(dataPath), contentType };
+}
+
+function writeCache(key: string, buffer: Buffer, contentType: string): void {
+  mkdirSync(CACHE_DIR, { recursive: true });
+  writeFileSync(join(CACHE_DIR, `${key}.bin`), buffer);
+  writeFileSync(join(CACHE_DIR, `${key}.json`), JSON.stringify({ contentType }));
+}
+
+// Cards show covers at most ~1200px wide (the lightbox reuses the same URL),
+// but arXiv/PMC figures and AI renders often arrive as large PNGs. Re-encode
+// once, before caching, so every later hit (disk, browser, CDN) is small.
+const MAX_COVER_WIDTH = 1200;
+
+async function shrinkImage(buffer: Buffer, contentType: string): Promise<{ buffer: Buffer; contentType: string }> {
+  // SVG is already small and resolution-independent; GIFs may be animated.
+  if (contentType.includes('svg') || contentType.includes('gif')) return { buffer, contentType };
+  try {
+    // failOn 'none': some arXiv PNGs have minor corruption (e.g. 2610.31937's
+    // figure) that browsers render fine but sharp rejects by default.
+    const out = await sharp(buffer, { failOn: 'none' })
+      .resize({ width: MAX_COVER_WIDTH, withoutEnlargement: true })
+      .webp({ quality: 85 })
+      .toBuffer();
+    // Keep the original when re-encoding doesn't actually save anything.
+    return out.length < buffer.length ? { buffer: out, contentType: 'image/webp' } : { buffer, contentType };
+  } catch (e) {
+    console.warn('[cover] resize failed, serving original:', e instanceof Error ? e.message : e);
+    return { buffer, contentType };
+  }
+}
+
+// Plain solid black — used whenever real image generation isn't available
+// (rate limit, no backend configured). No pattern: the .cover-fallback CSS
+// theme (pure black card, white text) already signals this is deliberate.
+function makeSvgCover(): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="768" viewBox="0 0 512 768">
+  <rect width="512" height="768" fill="#000000"/>
+</svg>`;
+}
+
+// GET (not POST) is what lets this actually get cached: Vercel's edge network
+// and browsers only ever cache GET/HEAD responses, regardless of what
+// Cache-Control says — a POST response is never stored by either. Since a
+// cover is fully determined by its query params, GET is the correct verb
+// here and turns "generate once" into a real guarantee instead of an
+// aspiration resting entirely on the ephemeral /tmp disk cache below.
+export async function GET(request: NextRequest) {
+  try {
+    const ALLOWED_MODELS: Record<string, string> = {
+      'flux-1-schnell':               '@cf/black-forest-labs/flux-1-schnell',
+      'stable-diffusion-xl-base-1.0': '@cf/stabilityai/stable-diffusion-xl-base-1.0',
+      'stable-diffusion-xl-lightning':'@cf/bytedance/stable-diffusion-xl-lightning',
+      'dreamshaper-8-lcm':            '@cf/lykon/dreamshaper-8-lcm',
+    };
+
+    const params = request.nextUrl.searchParams;
+    const title = params.get('title') ?? undefined;
+    const abstract = params.get('abstract') ?? undefined;
+    const modelKey = params.get('model') ?? 'flux-1-schnell';
+    const arxivId = params.get('arxivId') ?? undefined;
+    const pmid = params.get('pmid') ?? undefined;
+
+    if (!title || !abstract) {
+      return new Response('Missing title or abstract', { status: 400 });
+    }
+
+    // PubMed / medical covers are the ones that go uncanny when the model
+    // tries to draw patients, surgery, or anatomy. Other fields don't get
+    // that restriction — see the Groq prompt split below.
+    const isMedical = !!pmid;
+    // Non-medical keys are versioned so covers generated under the old
+    // global no-faces prompt can refresh.
+    const cacheKey = getCacheKey(title, isMedical ? modelKey : `${modelKey}:open`);
+
+    // Check every disk cache before any network call. Papers with no usable
+    // figure (most PubMed papers, many new arXiv ones) would otherwise redo
+    // the arXiv/PMC lookups below on every request, even with an AI cover
+    // already cached. Order keeps a real figure preferred over AI art.
+    const cached =
+      (arxivId && readCache(getCacheKey(arxivId, 'figure'))) ||
+      (pmid && readCache(getCacheKey(pmid, 'pmc-figure'))) ||
+      readCache(cacheKey);
+    if (cached) {
+      return new Response(new Uint8Array(cached.buffer), {
+        headers: { 'Content-Type': cached.contentType, 'Cache-Control': 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=2592000', 'X-Cache': 'HIT' },
+      });
+    }
+
+    // Prefer the paper's real Figure 1 from arXiv's auto-generated HTML
+    // rendering — faster (no generation), free (no quota), and actually
+    // accurate (it's the real figure, not an AI's guess). Cached separately
+    // from the AI path since it doesn't depend on the model selector.
+    if (arxivId) {
+      const figureCacheKey = getCacheKey(arxivId, 'figure');
+      try {
+        const htmlRes = await fetch(`https://arxiv.org/html/${encodeURIComponent(arxivId)}`, {
+          signal: AbortSignal.timeout(8000),
+        });
+        if (htmlRes.ok) {
+          const html = await htmlRes.text();
+          const imgTags = html.match(/<img\b[^>]*>/g) ?? [];
+          let figureSrc: string | null = null;
+          for (const tag of imgTags) {
+            if (/\bltx_graphics\b/.test(tag)) {
+              const srcMatch = tag.match(/\ssrc="([^"]+)"/);
+              if (srcMatch) { figureSrc = srcMatch[1]; break; }
+            }
+          }
+
+          if (figureSrc) {
+            const figureUrl = /^https?:\/\//.test(figureSrc)
+              ? figureSrc
+              : `https://arxiv.org/html/${figureSrc}`;
+            const imgRes = await fetch(figureUrl, { signal: AbortSignal.timeout(10000) });
+            if (imgRes.ok) {
+              const contentType = imgRes.headers.get('content-type') ?? '';
+              if (contentType.startsWith('image/')) {
+                const figBuffer = Buffer.from(await imgRes.arrayBuffer());
+                // Skip tiny/broken images (e.g. inline math glyphs that
+                // slipped through the class filter) rather than caching junk.
+                if (figBuffer.length > 3000) {
+                  const fig = await shrinkImage(figBuffer, contentType);
+                  writeCache(figureCacheKey, fig.buffer, fig.contentType);
+                  return new Response(new Uint8Array(fig.buffer), {
+                    headers: { 'Content-Type': fig.contentType, 'Cache-Control': 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=2592000', 'X-Cache': 'MISS' },
+                  });
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[cover] arXiv figure fetch error, falling back to AI generation:', e instanceof Error ? e.message : e);
+      }
+    }
+
+    // Same idea for PubMed papers: if the paper is open-access in PubMed
+    // Central, use its real figure instead of AI-generated art. Most PubMed
+    // papers are NOT in PMC, so this commonly falls through to AI generation
+    // below — that's expected, not an error.
+    if (pmid) {
+      const pmcFigureCacheKey = getCacheKey(pmid, 'pmc-figure');
+      try {
+        const idConvRes = await fetch(
+          `https://pmc.ncbi.nlm.nih.gov/tools/idconv/api/v1/articles/?ids=${encodeURIComponent(pmid)}&format=json`,
+          { signal: AbortSignal.timeout(6000) }
+        );
+        if (idConvRes.ok) {
+          const idConvData = await idConvRes.json();
+          const pmcid = idConvData?.records?.[0]?.pmcid as string | undefined;
+
+          if (pmcid) {
+            const pageRes = await fetch(`https://pmc.ncbi.nlm.nih.gov/articles/${pmcid}/`, {
+              signal: AbortSignal.timeout(8000),
+            });
+            if (pageRes.ok) {
+              const html = await pageRes.text();
+              const imgTags = html.match(/<img\b[^>]*>/g) ?? [];
+              let figureSrc: string | null = null;
+              for (const tag of imgTags) {
+                if (/\bgraphic\b/.test(tag)) {
+                  const srcMatch = tag.match(/\ssrc="([^"]+)"/);
+                  if (srcMatch) { figureSrc = srcMatch[1]; break; }
+                }
+              }
+
+              if (figureSrc) {
+                const imgRes = await fetch(figureSrc, { signal: AbortSignal.timeout(10000) });
+                if (imgRes.ok) {
+                  const contentType = imgRes.headers.get('content-type') ?? '';
+                  if (contentType.startsWith('image/')) {
+                    const figBuffer = Buffer.from(await imgRes.arrayBuffer());
+                    if (figBuffer.length > 3000) {
+                      const fig = await shrinkImage(figBuffer, contentType);
+                      writeCache(pmcFigureCacheKey, fig.buffer, fig.contentType);
+                      return new Response(new Uint8Array(fig.buffer), {
+                        headers: { 'Content-Type': fig.contentType, 'Cache-Control': 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=2592000', 'X-Cache': 'MISS' },
+                      });
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[cover] PMC figure fetch error, falling back to AI generation:', e instanceof Error ? e.message : e);
+      }
+    }
+
+    const cfModel = ALLOWED_MODELS[modelKey] ?? ALLOWED_MODELS['flux-1-schnell'];
+    const { takeCfCoverSlot, takeGroqSlot } = await import('@/lib/listenQuota');
+
+    // Step 1: Groq → evocative visual prompt (used only for the AI-generation
+    // fallback below, when the paper has no usable arXiv HTML figure). Any
+    // failure here (rate limit, outage) just falls back to the raw title
+    // instead of failing the whole request.
+    let visualPrompt = title;
+    try {
+      if (!process.env.GROQ_API_KEY || !takeGroqSlot()) {
+        /* stay on the raw title — no Groq charge */
+      } else {
+      const promptRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        signal: AbortSignal.timeout(10000),
+        body: JSON.stringify({
+          model: 'openai/gpt-oss-20b',
+          reasoning_effort: 'low',
+          max_tokens: 200,
+          messages: [{
+            role: 'user',
+            content: isMedical
+              ? `You are an editorial illustrator creating ONE minimalist concept image for a medical research paper. It will be shown faded and tinted as a background texture behind the paper's real title, which is rendered separately as HTML text — so the image itself must contain ZERO text, letters, numbers, words, logos, or typography of any kind.
+
+Write an image generation prompt as one flowing paragraph (80-110 words):
+1. SUBJECT: identify the single clearest visual metaphor for this paper's central idea — name the exact phenomenon, object, or process from the abstract. Render it as one clean subject with at most 1-2 supporting elements.
+2. NO HUMAN FACES OR FIGURES: image models render patients, surgery, and anatomy as distorted and uncanny. Don't depict a person. Represent the idea abstractly and symbolically instead: cell structures, molecules, organ silhouettes without facial features, medical iconography, anatomical cross-sections, equipment, or a geometric metaphor for the process. Prefer objects and abstract forms over any human figure.
+3. STYLE: minimalist editorial illustration — flat clean shapes, generous negative space, a muted limited color palette, soft even lighting. Simple enough to work as a faded background, not a busy poster.
+4. End the prompt explicitly with: "no text, no letters, no numbers, no words, no logos, no watermark, no human faces, no human figures"
+
+Be specific to THIS paper's actual subject — not a generic medical cliché. No equations, no axis labels, no charts.
+
+Title: ${title}
+Abstract: ${abstract.slice(0, 600)}
+
+Output only the image generation prompt, as one clean paragraph.`
+              : `You are an editorial illustrator creating ONE minimalist concept image for a research paper. It will be shown faded and tinted as a background texture behind the paper's real title, which is rendered separately as HTML text — so the image itself must contain ZERO text, letters, numbers, words, logos, or typography of any kind.
+
+Write an image generation prompt as one flowing paragraph (80-110 words):
+1. SUBJECT: identify the single clearest visual metaphor for this paper's central idea — name the exact phenomenon, object, or process from the abstract. Render it as one clean subject with at most 1-2 supporting elements. Adapt the visual style to the field (computational, physical, mathematical, biological, social, etc). People, scenes, or figures are fine when they actually serve the idea.
+2. STYLE: minimalist editorial illustration — flat clean shapes, generous negative space, a muted limited color palette, soft even lighting. Simple enough to work as a faded background, not a busy poster.
+3. End the prompt explicitly with: "no text, no letters, no numbers, no words, no logos, no watermark"
+
+Be specific to THIS paper's actual subject — not a generic tech/science cliché. No equations, no axis labels, no charts.
+
+Title: ${title}
+Abstract: ${abstract.slice(0, 600)}
+
+Output only the image generation prompt, as one clean paragraph.`,
+          }],
+        }),
+      });
+
+      if (promptRes.ok) {
+        const promptData = await promptRes.json();
+        visualPrompt = promptData.choices?.[0]?.message?.content?.trim() ?? title;
+      } else {
+        console.warn('[cover] Groq unavailable, using raw title as prompt:', promptRes.status);
+      }
+      }
+    } catch (e) {
+      console.warn('[cover] Groq error, using raw title as prompt:', e instanceof Error ? e.message : e);
+    }
+
+    // Step 2: Generate image — Cloudflare Workers AI first (best quality/speed
+    // when quota is available), then Pollinations/HF/black cover in order.
+    let buffer: Buffer | null = null;
+
+    // Reserve the daily Cloudflare slot only here, right before the call —
+    // taking it any earlier also spends quota on requests that end up served
+    // from cache, and once it's gone every cover drops to slow Pollinations.
+    if (process.env.CF_ACCOUNT_ID && process.env.CF_API_TOKEN && takeCfCoverSlot()) {
+      try {
+        const cfRes = await fetch(
+          `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACCOUNT_ID}/ai/run/${cfModel}`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${process.env.CF_API_TOKEN}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ prompt: visualPrompt }),
+            signal: AbortSignal.timeout(20000),
+          }
+        );
+
+        if (cfRes.ok) {
+          const contentType = cfRes.headers.get('content-type') ?? '';
+          if (contentType.includes('image')) {
+            buffer = Buffer.from(await cfRes.arrayBuffer());
+          } else {
+            const cfData = await cfRes.json();
+            const base64 = cfData?.result?.image as string | undefined;
+            if (base64) buffer = Buffer.from(base64, 'base64');
+          }
+        } else {
+          const err = await cfRes.text();
+          console.warn('[cover] CF AI unavailable, falling back:', err.slice(0, 120));
+        }
+      } catch (e) {
+        console.warn('[cover] CF AI error, falling back:', e instanceof Error ? e.message : e);
+      }
+    }
+
+    // Fallback 1: Pollinations.ai — free Flux image generation, no API key
+    // required. Anonymous requests are heavily rate-limited (can stall for
+    // 30s+); a free registered token (POLLINATIONS_TOKEN, from
+    // enter.pollinations.ai) raises that limit substantially.
+    if (!buffer) {
+      try {
+        const pollinationsUrl =
+          `https://image.pollinations.ai/prompt/${encodeURIComponent(visualPrompt.slice(0, 500))}` +
+          `?width=1024&height=768&model=flux&nologo=true&safe=true`;
+        const polRes = await fetch(pollinationsUrl, {
+          headers: process.env.POLLINATIONS_TOKEN
+            ? { 'Authorization': `Bearer ${process.env.POLLINATIONS_TOKEN}` }
+            : {},
+          signal: AbortSignal.timeout(30000),
+        });
+        if (polRes.ok) {
+          buffer = Buffer.from(await polRes.arrayBuffer());
+        } else {
+          console.warn('[cover] Pollinations unavailable:', polRes.status);
+        }
+      } catch (e) {
+        console.warn('[cover] Pollinations error:', e instanceof Error ? e.message : e);
+      }
+    }
+
+    // Fallback 2: Hugging Face Inference API (FLUX.1-schnell)
+    if (!buffer && process.env.HF_TOKEN) {
+      try {
+        const hfRes = await fetch(
+          'https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell',
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${process.env.HF_TOKEN}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ inputs: visualPrompt.slice(0, 500), parameters: { width: 512, height: 768 } }),
+            signal: AbortSignal.timeout(60000),
+          }
+        );
+        if (hfRes.ok) {
+          buffer = Buffer.from(await hfRes.arrayBuffer());
+        } else {
+          console.warn('[cover] HF unavailable:', hfRes.status);
+        }
+      } catch (e) {
+        console.warn('[cover] HF error:', e instanceof Error ? e.message : e);
+      }
+    }
+
+    // Fallback 3: plain black cover. Deliberately NOT written to the 7-day
+    // disk cache — every real backend failing is almost always a transient
+    // quota/rate-limit blip, so the next request should retry generation
+    // instead of replaying this placeholder for a week.
+    if (!buffer) {
+      const svg = makeSvgCover();
+      return new Response(Buffer.from(svg), {
+        headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=60', 'X-Cache': 'MISS' },
+      });
+    }
+
+    // Generators return PNG or JPEG; 'image/png' is only the label used if
+    // re-encoding fails (browsers sniff the real format either way).
+    const image = await shrinkImage(buffer, 'image/png');
+    writeCache(cacheKey, image.buffer, image.contentType);
+    return new Response(new Uint8Array(image.buffer), {
+      headers: { 'Content-Type': image.contentType, 'Cache-Control': 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=2592000', 'X-Cache': 'MISS' },
+    });
+  } catch (error) {
+    console.error('[cover] error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return new Response(message, { status: 500 });
+  }
+}
